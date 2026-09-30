@@ -125,6 +125,7 @@ export async function api<T>(
     if (
       response.status === 428 &&
       !options.public &&
+      token(account) === requestToken &&
       !AUTH_GUARD_DISABLED &&
       window.location.pathname !==
         (account === "admin" ? "/admin/setup-region" : "/setup-region")

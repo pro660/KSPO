@@ -18,6 +18,9 @@
   * {
     box-sizing: border-box;
   }
+  html {
+    scrollbar-gutter: stable both-edges;
+  }
   body {
     margin: 0;
     background: #f4f7fb;
@@ -574,22 +577,33 @@
     max-width: none;
     display: block;
   }
+  .entry-screen {
+    padding: clamp(64px, 16svh, 137px) 26px 36px;
+  }
+  .entry-logo {
+    display: block;
+    transform: translate(27px, 60px);
+    width: 231px;
+    height: 89.04px;
+    margin: 0 auto 70px;
+    flex-shrink: 0;
+  }
+  .auth-screen .entry-logo {
+    transform: translate(27px, 30px);
+  }
+  .entry-logo .design-graphic {
+    display: block;
+  }
   .welcome {
     min-height: 824px;
-    position: relative;
-    padding: 0 26px 18px;
+    padding-bottom: 18px;
     display: flex;
     flex-direction: column;
-    justify-content: flex-end;
-  }
-  .welcome-logo {
-    position: absolute;
-    top: 282px;
-    left: calc(50% - 83px);
   }
   .welcome-actions {
     display: grid;
     gap: 19px;
+    margin-top: auto;
   }
   .welcome .button {
     background: #1070e6;
@@ -597,20 +611,8 @@
     min-height: 50px;
     border-radius: 14px;
   }
-  .auth-screen {
-    padding: 0 26px 36px;
-  }
-  .auth-logo {
-    display: block;
-    position: relative;
-    margin-left: auto;
-    margin-right: auto;
-    padding-top: 137px;
-    width: 231px;
-    height: 226px;
-  }
   .auth-form {
-    padding-top: 70px;
+    padding-top: 0;
   }
   .auth-form > input {
     height: 50px;
@@ -642,16 +644,62 @@
     font-size: 11px;
     margin-top: 20px;
   }
-  .register-screen .auth-logo {
-    padding-top: 50px;
-    height: 139px;
-    margin-bottom: 35px;
-  }
-  .register-screen .auth-form {
-    padding-top: 0;
-  }
   .register-screen .auth-submit {
     margin-top: 8px;
+  }
+  .recovery-tabs {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 28px;
+  }
+  .recovery-tabs a {
+    padding: 14px 4px;
+    text-align: center;
+    color: var(--muted);
+    border-bottom: 2px solid transparent;
+    font-size: 15px;
+    font-weight: 600;
+  }
+  .recovery-tabs a[aria-current="page"] {
+    color: var(--blue);
+    border-bottom-color: var(--blue);
+  }
+  .recovery-heading {
+    margin-bottom: 24px;
+  }
+  .recovery-heading h1 {
+    font-size: 20px;
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+  .recovery-heading p {
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.7;
+  }
+  .recovery-form .field {
+    margin-bottom: 16px;
+  }
+  .recovery-form input {
+    height: 50px;
+    border: 2px solid #dbdbdb;
+    border-radius: 14px;
+    padding-left: 19px;
+    font-size: 15px;
+  }
+  .recovery-form .auth-submit {
+    margin-top: 8px;
+    font-size: 16px;
+  }
+  .recovery-notice {
+    margin-top: 16px;
+    padding: 12px 14px;
+    border-radius: 12px;
+    background: #f4f7fb;
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.7;
   }
   .demo-login {
     font-size: 11px;
@@ -1212,6 +1260,12 @@
   }
   .chat-input button {
     color: var(--blue);
+  }
+  .home-search form:focus-within,
+  .search-input:focus-within,
+  .chat-input:focus-within {
+    outline: 3px solid #93c5fd;
+    outline-offset: 3px;
   }
   .suggestion-grid {
     display: grid;
@@ -2204,9 +2258,6 @@
       min-height: 100dvh;
       padding-bottom: max(18px, env(safe-area-inset-bottom));
     }
-    .welcome-logo {
-      top: calc(40dvh - 18px);
-    }
     .sheet-inner {
       padding-bottom: max(24px, env(safe-area-inset-bottom));
     }
@@ -2311,9 +2362,6 @@
   @media (max-width: 500px) {
     html {
       scrollbar-width: none;
-    }
-    .welcome-logo {
-      top: calc(40dvh - 68px);
     }
   }
 }

@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   isPagePath,
   isSuperPage,
+  isPublicPage,
   isResourceId,
   safeRelativePath,
 } from "../src/lib/paths";
@@ -139,4 +140,41 @@ test("corrupt browser preferences cannot crash My or facility pages", () => {
     });
     assert.deepEqual(readStoredArray("favorites", isStoredFacility), []);
   }
+});
+
+test("stored facilities reject corrupt optional fields before rendering", () => {
+  const facility = {
+    id: 1,
+    name: "체육관",
+    type: "수영",
+    regionCode: "11710",
+    regionName: "서울특별시 송파구",
+    address: "송파구",
+    status: "OPERATING",
+  };
+  assert.equal(isStoredFacility(facility), true);
+  for (const key of [
+    "phone",
+    "publicNotice",
+    "sourceUrl",
+    "imageUrl",
+    "openingTime",
+    "closingTime",
+    "externalId",
+    "statusLabel",
+  ]) {
+    assert.equal(isStoredFacility({ ...facility, [key]: {} }), false, key);
+  }
+  assert.equal(isStoredFacility({ ...facility, maxCapacity: "8" }), false);
+  assert.equal(isStoredFacility({ ...facility, source: "unknown" }), false);
+});
+
+test("recovery screens are public and recognized for both account types", () => {
+  for (const prefix of ["", "/admin"]) {
+    for (const page of ["find-id", "find-password"]) {
+      assert.equal(isPagePath(`${prefix}/${page}`), true);
+      assert.equal(isPublicPage(`${prefix}/${page}`), true);
+    }
+  }
+  assert.equal(isPublicPage("/admin/admins"), false);
 });

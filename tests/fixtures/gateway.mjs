@@ -103,6 +103,22 @@ const report = {
   photoUrl: inspection.photoUrl,
 };
 const sessions = new Map();
+let failReads = process.env.CHECHE_FIXTURE_FAIL_READS === "true";
+process.stdin.setEncoding("utf8");
+process.stdin.on("data", (command) => {
+  if (command.trim() === "recover") {
+    failReads = false;
+    console.log("List responses recovered");
+  }
+});
+const retryablePaths = new Set([
+  "/api/user/reservations",
+  "/api/user/reports",
+  "/api/admins",
+  "/api/inspections",
+  "/api/inspections/open",
+  "/api/facilities",
+]);
 createServer(async (req, res) => {
   const path = new URL(req.url, "http://127.0.0.1").pathname;
   const reply = (body, status = 200) => {
@@ -149,6 +165,12 @@ createServer(async (req, res) => {
   const current = sessions.get(req.headers.authorization);
   if (!current)
     return reply({ message: "테스트 계정으로 로그인해주세요." }, 401);
+  if (failReads && req.method === "GET" && retryablePaths.has(path)) {
+    return reply(
+      { message: "목록을 불러오지 못했습니다. 다시 시도해주세요." },
+      503,
+    );
+  }
   if (path.endsWith("/me")) return reply(current);
   if (path.endsWith("/regions")) return reply(regions);
   if (path.endsWith("/region")) {

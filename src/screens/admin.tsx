@@ -319,7 +319,7 @@ export function SuperDashboard() {
           ))}
         <SectionTitle
           href="/admin/urgent"
-          more={`${urgent.length}건 전체 보기`}
+          more={inspections.data ? `${urgent.length}건 전체 보기` : "전체 보기"}
         >
           긴급 미조치
         </SectionTitle>
@@ -428,7 +428,9 @@ export function AdminFacilities() {
             </option>
           ))}
         </select>
-        <SectionTitle detail={`${rows.length}개`}>관리 시설</SectionTitle>
+        <SectionTitle detail={resource.data ? `${rows.length}개` : "—"}>
+          관리 시설
+        </SectionTitle>
         <DataState {...resource} retry={resource.reload}>
           {rows.length ? (
             rows.map((f) => (

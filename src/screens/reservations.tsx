@@ -414,7 +414,10 @@ export function ReservationsScreen() {
           value={tab}
           onChange={setTab}
           items={[
-            { value: "upcoming", label: `이용 예정 ${upcoming.length}` },
+            {
+              value: "upcoming",
+              label: `이용 예정 ${resource.data ? upcoming.length : "—"}`,
+            },
             { value: "past", label: "이용 완료" },
             { value: "cancelled", label: "취소" },
           ]}

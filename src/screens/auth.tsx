@@ -9,17 +9,21 @@ import {
   ErrorMessage,
   Field,
   Notice,
-  Sheet,
 } from "@/components/ui";
 import { api, DEMO_MODE, jsonBody, saveLogin } from "@/lib/api";
 import { useMutation } from "@/lib/hooks";
 import type { Account, LoginResponse } from "@/lib/types";
+function EntryLogo() {
+  return (
+    <Link href="/" className="entry-logo" aria-label="시작 화면">
+      <DesignGraphic name="logo" label="국민체육진흥공단" />
+    </Link>
+  );
+}
 export function Welcome() {
   return (
-    <div className="welcome">
-      <div className="welcome-logo">
-        <DesignGraphic name="logo" label="국민체육진흥공단" />
-      </div>
+    <div className="entry-screen welcome">
+      <EntryLogo />
       <div className="welcome-actions">
         <Link className="button primary" href="/login">
           로그인
@@ -44,7 +48,6 @@ export function AuthScreen({
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
-  const [help, setHelp] = useState(false);
   const [superLogin, setSuperLogin] = useState(false);
   const [done, setDone] = useState(false);
   const loginPath = account === "admin" ? "/admin/login" : "/login";
@@ -81,10 +84,10 @@ export function AuthScreen({
     );
   }
   return (
-    <div className={`auth-screen ${register ? "register-screen" : ""}`}>
-      <Link href="/" className="auth-logo" aria-label="시작 화면">
-        <DesignGraphic name="logo" label="국민체육진흥공단" />
-      </Link>
+    <div
+      className={`entry-screen auth-screen ${register ? "register-screen" : ""}`}
+    >
+      <EntryLogo />
       {register && !done && (
         <h1 className="text-xl font-bold mb-5">
           {account === "admin" ? "관리자 " : ""}회원가입
@@ -160,9 +163,19 @@ export function AuthScreen({
       )}
       {!register && (
         <>
-          <button className="auth-help" onClick={() => setHelp(true)}>
-            아이디 찾기 · 비밀번호 찾기
-          </button>
+          <div className="auth-help">
+            <Link href={account === "admin" ? "/admin/find-id" : "/find-id"}>
+              아이디 찾기
+            </Link>
+            <span aria-hidden="true"> · </span>
+            <Link
+              href={
+                account === "admin" ? "/admin/find-password" : "/find-password"
+              }
+            >
+              비밀번호 찾기
+            </Link>
+          </div>
           {account === "admin" && (
             <Button
               variant="secondary"
@@ -205,19 +218,80 @@ export function AuthScreen({
           </button>
         </div>
       )}
-      {help && (
-        <Sheet
-          title="계정 찾기 안내"
-          variant="dialog"
-          onClose={() => setHelp(false)}
-          footer={<Button onClick={() => setHelp(false)}>확인</Button>}
+    </div>
+  );
+}
+
+export function RecoveryScreen({
+  account = "user",
+  password = false,
+}: {
+  account?: Account;
+  password?: boolean;
+}) {
+  const prefix = account === "admin" ? "/admin" : "";
+  const title = password ? "비밀번호 찾기" : "아이디 찾기";
+  return (
+    <div className="entry-screen auth-screen recovery-screen">
+      <EntryLogo />
+      <nav className="recovery-tabs" aria-label="계정 찾기">
+        <Link
+          href={`${prefix}/find-id`}
+          aria-current={!password ? "page" : undefined}
         >
-          <p className="muted leading-7">
-            아이디·비밀번호 찾기는 현재 지원 준비 중입니다. 계정을 발급한 운영
-            담당자에게 문의해주세요.
-          </p>
-        </Sheet>
-      )}
+          아이디 찾기
+        </Link>
+        <Link
+          href={`${prefix}/find-password`}
+          aria-current={password ? "page" : undefined}
+        >
+          비밀번호 찾기
+        </Link>
+      </nav>
+      <div className="recovery-heading">
+        <h1>
+          {account === "admin" ? "관리자 " : ""}
+          {title}
+        </h1>
+        <p>계정 확인에 필요한 정보를 입력해주세요.</p>
+      </div>
+      <form
+        key={title}
+        className="auth-form recovery-form"
+        onSubmit={(event) => event.preventDefault()}
+      >
+        <Field label={password ? "아이디" : "이름"}>
+          <input
+            autoComplete={password ? "username" : "name"}
+            maxLength={50}
+            placeholder={
+              password ? "아이디를 입력해주세요" : "이름을 입력해주세요"
+            }
+          />
+        </Field>
+        <Field label="이메일">
+          <input
+            type="email"
+            autoComplete="email"
+            maxLength={254}
+            placeholder="이메일 주소를 입력해주세요"
+          />
+        </Field>
+        <Button
+          type="button"
+          className="auth-submit"
+          disabled
+          aria-describedby="recovery-notice"
+        >
+          {password ? "비밀번호 재설정 안내 받기" : "아이디 찾기"}
+        </Button>
+        <p id="recovery-notice" className="recovery-notice">
+          계정 찾기 기능은 준비 중입니다. 입력한 정보는 전송되지 않습니다.
+        </p>
+      </form>
+      <Link className="auth-register" href={`${prefix}/login`}>
+        로그인으로 돌아가기
+      </Link>
     </div>
   );
 }

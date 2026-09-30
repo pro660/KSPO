@@ -76,12 +76,12 @@ export function MyScreen() {
           items={[
             {
               label: "예약",
-              value: reservations.loading ? "—" : `${rows.length}회`,
+              value: reservations.data ? `${rows.length}회` : "—",
               tone: "blue",
             },
             {
               label: "개선 요청",
-              value: reports.loading ? "—" : `${listOf(reports.data).length}건`,
+              value: reports.data ? `${listOf(reports.data).length}건` : "—",
               tone: "green",
             },
             {
@@ -91,7 +91,13 @@ export function MyScreen() {
             },
           ]}
         />
-        <ErrorMessage message={reservations.error || reports.error} />
+        <ErrorMessage
+          message={reservations.error || reports.error}
+          retry={() => {
+            reservations.reload();
+            reports.reload();
+          }}
+        />
         <SectionTitle>찜한 시설</SectionTitle>
         {favorites.length ? (
           favorites.map((f) => (

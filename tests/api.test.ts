@@ -93,6 +93,16 @@ test("428 respects the setup redirect guard without clearing JWT", async () => {
   assert.equal(redirect, AUTH_GUARD_DISABLED ? "" : "/setup-region");
   assert.equal(memory.get(tokenKey("user")), "u");
 });
+test("a late 428 from an old login cannot redirect a newer session", async () => {
+  memory.set(tokenKey("user"), "old-session");
+  globalThis.fetch = async () => {
+    memory.set(tokenKey("user"), "new-session");
+    return new Response(null, { status: 428 });
+  };
+  await assert.rejects(api("/api/user/facilities/home", "user"));
+  assert.equal(redirect, "");
+  assert.equal(memory.get(tokenKey("user")), "new-session");
+});
 test("empty 403,409,503 errors and 204 success are supported", async () => {
   for (const status of [403, 409, 503]) {
     globalThis.fetch = async () => new Response(null, { status });

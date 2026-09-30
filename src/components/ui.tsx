@@ -157,13 +157,12 @@ export function Tabs({
   onChange: (v: string) => void;
 }) {
   return (
-    <div className="tabs" role="tablist">
+    <div className="tabs" role="group" aria-label="목록 필터">
       {items.map((i) => (
         <button
           key={i.value}
           type="button"
-          role="tab"
-          aria-selected={value === i.value}
+          aria-pressed={value === i.value}
           className={value === i.value ? "active" : ""}
           onClick={() => onChange(i.value)}
         >

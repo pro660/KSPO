@@ -520,32 +520,49 @@ export function InspectionsList({
               items={[
                 {
                   label: "미조치",
-                  value: allRows.filter((i) => i.actionStatus === "REPORTED")
-                    .length,
+                  value: all.data
+                    ? allRows.filter((i) => i.actionStatus === "REPORTED")
+                        .length
+                    : "—",
                   tone: "red",
                 },
                 {
                   label: "진행 중",
-                  value: allRows.filter((i) =>
-                    ["REVIEWING", "ACTION_SCHEDULED"].includes(i.actionStatus),
-                  ).length,
+                  value: all.data
+                    ? allRows.filter((i) =>
+                        ["REVIEWING", "ACTION_SCHEDULED"].includes(
+                          i.actionStatus,
+                        ),
+                      ).length
+                    : "—",
                   tone: "amber",
                 },
                 {
                   label: "완료",
-                  value: allRows.filter((i) => i.actionStatus === "RESOLVED")
-                    .length,
+                  value: all.data
+                    ? allRows.filter((i) => i.actionStatus === "RESOLVED")
+                        .length
+                    : "—",
                   tone: "green",
                 },
               ]}
             />
-            <ErrorMessage message={all.error} retry={all.reload} />
+            <ErrorMessage
+              message={
+                filter !== "RESOLVED" && all.error !== resource.error
+                  ? all.error
+                  : ""
+              }
+              retry={all.reload}
+            />
           </>
         )}
         {urgent && (
           <p className="muted text-sm mb-4">
-            긴급·높음 위험도의 미조치 {source.filter(isUrgentInspection).length}
-            건
+            긴급·높음 위험도의 미조치{" "}
+            {resource.data
+              ? `${source.filter(isUrgentInspection).length}건`
+              : "—"}
           </p>
         )}
         <div className="search-input my-4">
@@ -589,7 +606,10 @@ export function InspectionsList({
             </select>
           }
         >
-          점검 {rows.length}건
+          점검{" "}
+          {(actions && filter === "RESOLVED" ? all.data : resource.data)
+            ? `${rows.length}건`
+            : "—"}
         </SectionTitle>
         <DataState
           loading={
@@ -676,22 +696,25 @@ export function HistoryScreen() {
             ))}
           </select>
         </Field>
-        <ErrorMessage message={facilities.error} retry={facilities.reload} />
         <Stats
           items={[
             {
               label: "점검",
-              value: `${listOf(history.data).length}회`,
+              value: history.data ? `${listOf(history.data).length}회` : "—",
               tone: "blue",
             },
             {
               label: "미조치",
-              value: `${listOf(history.data).filter((i) => i.actionStatus !== "RESOLVED").length}건`,
+              value: history.data
+                ? `${listOf(history.data).filter((i) => i.actionStatus !== "RESOLVED").length}건`
+                : "—",
               tone: "amber",
             },
             {
               label: "조치 완료",
-              value: `${listOf(history.data).filter((i) => i.actionStatus === "RESOLVED").length}건`,
+              value: history.data
+                ? `${listOf(history.data).filter((i) => i.actionStatus === "RESOLVED").length}건`
+                : "—",
               tone: "green",
             },
           ]}
@@ -709,8 +732,11 @@ export function HistoryScreen() {
         </div>
         <DataState
           loading={facilities.loading || history.loading}
-          error={history.error}
-          retry={history.reload}
+          error={facilities.error || history.error}
+          retry={() => {
+            facilities.reload();
+            history.reload();
+          }}
         >
           {rows.length ? (
             <ol className="timeline">

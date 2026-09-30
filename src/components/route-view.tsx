@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { AUTH_GUARD_DISABLED } from "@/lib/api";
-import { AuthScreen, Welcome } from "@/screens/auth";
+import { AuthScreen, RecoveryScreen, Welcome } from "@/screens/auth";
 import { RegionScreen } from "@/screens/region";
 import { UserRegionScreen } from "@/screens/user-region";
 import { FacilityDetail, HomeScreen, SearchScreen } from "@/screens/facilities";
@@ -37,6 +37,11 @@ export function RouteView({ segments }: { segments: string[] }) {
   if (path === "/") return <Welcome />;
   if (path === "/login") return <AuthScreen />;
   if (path === "/register") return <AuthScreen register />;
+  if (path === "/find-id") return <RecoveryScreen />;
+  if (path === "/find-password") return <RecoveryScreen password />;
+  if (path === "/admin/find-id") return <RecoveryScreen account="admin" />;
+  if (path === "/admin/find-password")
+    return <RecoveryScreen account="admin" password />;
   if (path === "/admin/login") return <AuthScreen account="admin" />;
   if (path === "/admin/register")
     return <AuthScreen account="admin" register />;
@@ -92,6 +97,8 @@ function ScreenIndex() {
         ["시작", "/"],
         ["로그인", "/login"],
         ["회원가입", "/register"],
+        ["아이디 찾기", "/find-id"],
+        ["비밀번호 찾기", "/find-password"],
         ["지역 설정", "/setup-region"],
         ["홈", "/home"],
         ["AI 대화", "/chat"],
@@ -111,6 +118,8 @@ function ScreenIndex() {
       screens: [
         ["로그인", "/admin/login"],
         ["회원가입", "/admin/register"],
+        ["아이디 찾기", "/admin/find-id"],
+        ["비밀번호 찾기", "/admin/find-password"],
         ["최초 지역 설정", "/admin/setup-region"],
         ["관리자 홈 · 슈퍼 대시보드", "/admin"],
         ["시설 관리", "/admin/facilities"],

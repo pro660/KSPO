@@ -7,7 +7,29 @@ export function isStoredFacility(value: unknown): value is Facility {
     ["name", "type", "regionCode", "regionName", "address", "status"].every(
       (key) => typeof item[key] === "string",
     ) &&
-    (item.id == null || (Number.isSafeInteger(item.id) && Number(item.id) > 0))
+    (item.id == null ||
+      (Number.isSafeInteger(item.id) && Number(item.id) > 0)) &&
+    ["OPERATING", "UNDER_INSPECTION", "CLOSED"].includes(String(item.status)) &&
+    [
+      "phone",
+      "publicNotice",
+      "sourceUrl",
+      "imageUrl",
+      "openingTime",
+      "closingTime",
+      "externalId",
+      "statusLabel",
+      "updatedAt",
+    ].every((key) => item[key] == null || typeof item[key] === "string") &&
+    (item.source == null ||
+      (typeof item.source === "string" &&
+        ["KSPO_NATIONAL_FACILITY", "SEOUL_OPEN_API", "KSPO_OPEN_API"].includes(
+          item.source,
+        ))) &&
+    (item.maxCapacity == null ||
+      (typeof item.maxCapacity === "number" &&
+        Number.isFinite(item.maxCapacity) &&
+        item.maxCapacity >= 0))
   );
 }
 

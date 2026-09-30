@@ -92,17 +92,23 @@ export function AdminManagement() {
               items={[
                 {
                   label: "전체",
-                  value: `${listOf(resource.data).length}명`,
+                  value: resource.data
+                    ? `${listOf(resource.data).length}명`
+                    : "—",
                   tone: "blue",
                 },
                 {
                   label: "활성",
-                  value: `${listOf(resource.data).filter((a) => a.status === "ACTIVE").length}명`,
+                  value: resource.data
+                    ? `${listOf(resource.data).filter((a) => a.status === "ACTIVE").length}명`
+                    : "—",
                   tone: "green",
                 },
                 {
                   label: "정지",
-                  value: `${listOf(resource.data).filter((a) => a.status === "SUSPENDED").length}명`,
+                  value: resource.data
+                    ? `${listOf(resource.data).filter((a) => a.status === "SUSPENDED").length}명`
+                    : "—",
                   tone: "amber",
                 },
               ]}
@@ -261,7 +267,8 @@ export function RegionOverview() {
         ) : (
           <>
             <p className="muted text-sm mb-5">
-              서울 25개 자치구 · 시설 {listOf(facilities.data).length}개
+              서울 25개 자치구 · 시설{" "}
+              {facilities.data ? `${listOf(facilities.data).length}개` : "—"}
             </p>
             <Tabs
               value={sort}

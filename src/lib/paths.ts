@@ -35,6 +35,10 @@ const publicRoutes = [
   "/screens",
   "/login",
   "/register",
+  "/find-id",
+  "/find-password",
+  "/admin/find-id",
+  "/admin/find-password",
   "/admin/login",
   "/admin/register",
 ];
