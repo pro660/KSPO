@@ -71,6 +71,7 @@ export function AdminManagement() {
         resource.reload();
         refresh();
       },
+      "관리자 권한이 변경되었습니다.",
     );
   }
   return (
@@ -149,8 +150,10 @@ export function AdminManagement() {
         )}
       </div>
       {selected && (
-        <Sheet title="관리자 권한 변경" onClose={() => setSelected(undefined)}>
-          <form onSubmit={save} className="space-y-4">
+        <Sheet title="관리자 권한 변경" busy={mutation.busy} onClose={() => setSelected(undefined)} footer={
+          <Button form="admin-authority-form" type="submit" busy={mutation.busy} disabled={regions.loading || !!regions.error}>권한 변경 저장</Button>
+        }>
+          <form id="admin-authority-form" onSubmit={save} className="space-y-4">
             <p className="font-bold">{selected.username}</p>
             <Field label="역할">
               <select name="role" defaultValue={selected.role} required>
@@ -182,7 +185,6 @@ export function AdminManagement() {
               변경한 권한은 해당 관리자의 다음 요청부터 적용됩니다.
             </p>
             <ErrorMessage message={mutation.error} />
-            <Button busy={mutation.busy}>권한 변경 저장</Button>
           </form>
         </Sheet>
       )}

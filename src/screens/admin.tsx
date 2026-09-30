@@ -22,6 +22,7 @@ import {
   ErrorMessage,
   Field,
   Header,
+  Notice,
   SectionTitle,
   Stats,
 } from "@/components/ui";
@@ -325,8 +326,8 @@ export function SuperDashboard() {
         {urgent.slice(0, 2).map((i) => (
           <InspectionRow key={i.id} inspection={i} />
         ))}
-        {!urgent.length && !inspections.loading && (
-          <p className="notice green">긴급 미조치 항목이 없습니다.</p>
+        {!urgent.length && !inspections.loading && !inspections.error && (
+          <p className="muted text-sm">긴급 미조치 항목이 없습니다.</p>
         )}
         <Link href="/admin/facilities" className="button secondary mt-6">
           전체 시설 관리
@@ -373,8 +374,9 @@ export function AdminFacilities() {
             variant="secondary"
             className="compact flex-1"
             busy={mutation.busy}
-            onClick={() =>
-              mutation.run(
+            onClick={() => {
+              setSync(undefined);
+              void mutation.run(
                 () =>
                   api<SyncResult>("/api/facilities/public-data/sync", "admin", {
                     method: "POST",
@@ -383,8 +385,8 @@ export function AdminFacilities() {
                   setSync(r);
                   resource.reload();
                 },
-              )
-            }
+              );
+            }}
           >
             <RefreshCw size={15} /> 공공데이터 동기화
           </Button>
@@ -394,11 +396,11 @@ export function AdminFacilities() {
         </div>
         <ErrorMessage message={mutation.error} />
         {sync && (
-          <p className="notice green mb-4">
+          <Notice tone="success" className="mb-4" onDismiss={() => setSync(undefined)}>
             {sync.regionName} · {sync.scannedCount}건 조회
             <br />
             신규 {sync.createdCount}건 · 갱신 {sync.updatedCount}건
-          </p>
+          </Notice>
         )}
         <div className="search-input">
           <Search size={17} />
@@ -552,7 +554,8 @@ export function FacilityForm({ id }: { id?: string }) {
             publicNotice: f.get("publicNotice") || null,
           }),
         }),
-      (r) => router.replace(`/admin/facilities/${r.id ?? id}`),
+      (r) => router.replace(r?.id || id ? `/admin/facilities/${r?.id ?? id}` : "/admin/facilities"),
+      id ? "시설 정보가 수정되었습니다." : "시설이 등록되었습니다.",
     );
   }
   return (

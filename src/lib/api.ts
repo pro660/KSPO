@@ -1,6 +1,5 @@
 import type { Account, LoginResponse } from "./types";
-export const API_BASE_URL =
-  process.env.NEXT_PUBLIC_CHECHE_API_BASE_URL ?? "http://localhost:8080";
+export const API_BASE_URL = "/gateway";
 export const DEMO_MODE = process.env.NEXT_PUBLIC_CHECHE_DEMO_MODE === "true";
 export const AUTH_GUARD_DISABLED =
   process.env.NEXT_PUBLIC_CHECHE_DISABLE_AUTH_GUARD === "true";
@@ -12,6 +11,9 @@ export function token(account: Account) {
     : localStorage.getItem(tokenKey(account));
 }
 export function saveLogin(account: Account, data: LoginResponse) {
+  if (!data || typeof data.accessToken !== "string" || !data.accessToken.trim()) {
+    throw new ApiError(502, "로그인 응답을 확인할 수 없습니다. 다시 시도해주세요.");
+  }
   localStorage.setItem(tokenKey(account), data.accessToken);
 }
 export function clearLogin(account: Account) {
@@ -33,7 +35,9 @@ export const statusMessages: Record<number, string> = {
   404: "요청한 정보를 찾을 수 없습니다.",
   409: "이미 처리되었거나 다른 요청과 중복됩니다. 최신 상태를 확인해주세요.",
   428: "먼저 담당 지역을 설정해주세요.",
+  502: "서버에 연결할 수 없습니다. 잠시 후 다시 시도해주세요.",
   503: "서비스를 일시적으로 사용할 수 없습니다. 잠시 후 다시 시도해주세요.",
+  504: "서버 응답이 지연되고 있습니다. 잠시 후 다시 시도해주세요.",
 };
 export async function api<T>(
   path: string,
@@ -41,39 +45,45 @@ export async function api<T>(
   init: RequestInit = {},
   options: { public?: boolean; text?: boolean; signal?: AbortSignal } = {},
 ): Promise<T> {
-  if (!path.startsWith("/")) throw new Error("올바르지 않은 API 경로입니다.");
+  if (!/^\/(api|auth)\//.test(path) || path.includes("\\") || /[\r\n]/.test(path)) throw new Error("올바르지 않은 API 경로입니다.");
   if (DEMO_MODE) {
     const { demoRequest } = await import("./demo");
     return demoRequest(path, account, init) as Promise<T>;
   }
   const headers = new Headers(init.headers);
-  ["X-User-Id", "X-User-Role", "X-User-Region"].forEach((key) =>
-    headers.delete(key),
-  );
+  for (const key of [...headers.keys()]) {
+    if (key.toLowerCase().startsWith("x-user-")) headers.delete(key);
+  }
+  headers.delete("Authorization");
   if (!options.public && token(account))
     headers.set("Authorization", `Bearer ${token(account)}`);
   if (init.body instanceof FormData) headers.delete("Content-Type");
   else if (init.body && !headers.has("Content-Type"))
     headers.set("Content-Type", "application/json");
+  if (!headers.has("Accept")) headers.set("Accept", options.text ? "text/plain" : "application/json");
+  const timeout = AbortSignal.timeout(65000);
+  const callerSignal = options.signal ?? init.signal;
   let response: Response;
   try {
     response = await fetch(`${API_BASE_URL}${path}`, {
       ...init,
       headers,
-      signal: options.signal ?? init.signal,
+      signal: callerSignal ? AbortSignal.any([callerSignal, timeout]) : timeout,
+      cache: "no-store",
+      credentials: "omit",
     });
   } catch (error) {
     if (error instanceof Error && error.name === "AbortError") throw error;
     throw new ApiError(
-      0,
-      "서버에 연결할 수 없습니다. Gateway 실행 상태와 네트워크를 확인해주세요.",
+      timeout.aborted ? 504 : 0,
+      timeout.aborted ? statusMessages[504] : "서버에 연결할 수 없습니다. 네트워크를 확인하고 다시 시도해주세요.",
     );
   }
   if (!response.ok) {
     if (response.status === 401 && !options.public) {
       clearLogin(account);
       if (!AUTH_GUARD_DISABLED)
-        window.location.assign(account === "admin" ? "/admin/login" : "/login");
+        window.location.assign(account === "admin" ? "/admin/login?reason=expired" : "/login?reason=expired");
     }
     if (response.status === 428 && !options.public && !AUTH_GUARD_DISABLED)
       window.location.assign(
@@ -86,7 +96,7 @@ export async function api<T>(
     } catch {}
     throw new ApiError(
       response.status,
-      detail ||
+      detail || (options.public && response.status === 401 ? "아이디 또는 비밀번호를 확인해주세요." : "") ||
         statusMessages[response.status] ||
         `요청에 실패했습니다. (${response.status})`,
     );
@@ -104,8 +114,18 @@ export async function api<T>(
 export function photoUrl(path?: string | null) {
   if (!path) return undefined;
   try {
-    const u = new URL(path, API_BASE_URL);
-    return ["http:", "https:"].includes(u.protocol) ? u.href : undefined;
+    if (path.startsWith("//") || path.includes("\\")) return undefined;
+    if (!/^[a-z][a-z\d+.-]*:/i.test(path)) {
+      return `${API_BASE_URL}/${path.replace(/^\/+/, "")}`;
+    }
+    const u = new URL(path);
+    if (!["http:", "https:"].includes(u.protocol)) return undefined;
+    const legacyBase = process.env.NEXT_PUBLIC_CHECHE_API_BASE_URL;
+    if (legacyBase && u.origin === new URL(legacyBase).origin) {
+      const basePath = new URL(legacyBase).pathname.replace(/\/+$/, "");
+      if (u.pathname.startsWith(`${basePath}/`)) return `${API_BASE_URL}${u.pathname.slice(basePath.length)}${u.search}`;
+    }
+    return u.href;
   } catch {
     return undefined;
   }

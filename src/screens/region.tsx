@@ -7,6 +7,7 @@ import {
   Badge,
   Button,
   DataState,
+  Empty,
   ErrorMessage,
   Header,
   Sheet,
@@ -32,8 +33,13 @@ export function RegionPicker({
 }) {
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState(value);
+  const filtered = regions.filter((r) => r.regionName.includes(query.trim()));
   return (
-    <Sheet title="시·군·구 선택" onClose={onClose}>
+    <Sheet title="시·군·구 선택" onClose={onClose} footer={
+      <Button disabled={!regions.some((r) => r.regionCode === selected)} onClick={() => { onSelect(selected); onClose(); }}>
+        {regions.find((r) => r.regionCode === selected)?.regionName.replace("서울특별시 ", "") ?? "지역"} 선택 완료
+      </Button>
+    }>
       <div className="search-input">
         <Search size={17} />
         <input
@@ -44,8 +50,7 @@ export function RegionPicker({
         />
       </div>
       <div className="district-grid">
-        {regions
-          .filter((r) => r.regionName.includes(query))
+        {filtered
           .map((r) => (
             <button
               type="button"
@@ -58,24 +63,12 @@ export function RegionPicker({
             </button>
           ))}
       </div>
-      <Button
-        className="mt-8"
-        disabled={!selected}
-        onClick={() => {
-          onSelect(selected);
-          onClose();
-        }}
-      >
-        {regions
-          .find((r) => r.regionCode === selected)
-          ?.regionName.replace("서울특별시 ", "") ?? "지역"}{" "}
-        선택 완료
-      </Button>
+      {!filtered.length && <Empty title="검색 결과가 없어요" description="다른 지역 이름으로 검색해주세요." />}
     </Sheet>
   );
 }
 export function RegionScreen() {
-  const { account, profile, refresh } = useSession();
+  const { account, profile, updateProfile } = useSession();
   const router = useRouter();
   const admin = account === "admin";
   const resource = useApi<ListResponse<RegionOption>>(
@@ -98,10 +91,11 @@ export function RegionScreen() {
         });
         return api<Profile>(`/api/${admin ? "admins" : "users"}/me`, account);
       },
-      () => {
-        refresh();
+      (updatedProfile) => {
+        updateProfile(updatedProfile);
         router.replace(admin ? "/admin" : "/home");
       },
+      "지역 설정이 저장되었습니다.",
     );
   }
   return (
@@ -118,11 +112,6 @@ export function RegionScreen() {
           선택한 지역의 체육시설을 {admin ? "조회·점검" : "탐색·예약"}할 수
           있습니다.
         </p>
-        <div className="notice blue mt-5">
-          ● 지역 정보는 계정에 저장됩니다.
-          <br />
-          이후 로그인부터 선택한 지역이 반영돼요.
-        </div>
         <DataState {...resource} retry={resource.reload}>
           <label className="field mt-5">
             <span>시·도</span>
@@ -183,7 +172,7 @@ export function RegionScreen() {
       {open && (
         <RegionPicker
           regions={regions}
-          value={selected}
+          value={selected || profile?.regionCode || ""}
           onSelect={setSelected}
           onClose={() => setOpen(false)}
         />

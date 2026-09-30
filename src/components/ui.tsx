@@ -16,6 +16,8 @@ import {
   LoaderCircle,
   ImagePlus,
   AlertCircle,
+  CheckCircle2,
+  Info,
 } from "lucide-react";
 import { label } from "@/lib/format";
 export function Button({
@@ -179,18 +181,55 @@ export function ErrorMessage({
   retry?: () => void;
 }) {
   return message ? (
-    <div className="error-box" role="alert">
-      <AlertCircle size={17} />
-      <div>
-        {message}
+    <Notice tone="error" className="error-box">
+      {message}
         {retry && (
-          <button onClick={retry} className="text-link block mt-2">
+          <button type="button" onClick={retry} className="text-link block mt-2">
             다시 시도
           </button>
         )}
-      </div>
-    </div>
+    </Notice>
   ) : null;
+}
+export function Notice({
+  children,
+  tone = "info",
+  className = "",
+  onDismiss,
+}: {
+  children: ReactNode;
+  tone?: "info" | "success" | "warning" | "error";
+  className?: string;
+  onDismiss?: () => void;
+}) {
+  const Icon = tone === "success" ? CheckCircle2 : tone === "info" ? Info : AlertCircle;
+  return (
+    <div className={`notice feedback ${tone} ${className}`} role={tone === "error" ? "alert" : "status"}>
+      <Icon size={18} aria-hidden="true" />
+      <div className="feedback-content">{children}</div>
+      {onDismiss && (
+        <button type="button" className="icon-button feedback-dismiss" aria-label="안내 닫기" onClick={onDismiss}>
+          <X size={18} />
+        </button>
+      )}
+    </div>
+  );
+}
+export function CompletionState({ title, description, children }: {
+  title: string;
+  description: string;
+  children: ReactNode;
+}) {
+  const ref = useRef<HTMLHeadingElement>(null);
+  useEffect(() => { ref.current?.focus(); }, []);
+  return (
+    <section className="completion-state">
+      <span className="completion-icon"><CheckCircle2 size={32} aria-hidden="true" /></span>
+      <h1 ref={ref} tabIndex={-1}>{title}</h1>
+      <p>{description}</p>
+      <div className="completion-actions">{children}</div>
+    </section>
+  );
 }
 export function Empty({
   title = "아직 내역이 없어요",
@@ -258,10 +297,16 @@ export function Sheet({
   title,
   children,
   onClose,
+  variant = "sheet",
+  footer,
+  busy = false,
 }: {
   title: string;
   children: ReactNode;
   onClose: () => void;
+  variant?: "sheet" | "dialog";
+  footer?: ReactNode;
+  busy?: boolean;
 }) {
   const titleId = useId();
   const ref = useRef<HTMLDialogElement>(null);
@@ -269,14 +314,20 @@ export function Sheet({
   const [closing, setClosing] = useState(false);
   useEffect(() => {
     const dialog = ref.current;
+    const previousFocus = document.activeElement as HTMLElement | null;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
     dialog?.showModal();
+    dialog?.querySelector<HTMLElement>("h2")?.focus();
     return () => {
       if (closeTimer.current) clearTimeout(closeTimer.current);
       dialog?.close();
+      document.body.style.overflow = previousOverflow;
+      if (previousFocus?.isConnected) previousFocus.focus();
     };
   }, []);
   function requestClose() {
-    if (closeTimer.current) return;
+    if (busy || closeTimer.current) return;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
       onClose();
       return;
@@ -288,7 +339,8 @@ export function Sheet({
     <dialog
       ref={ref}
       aria-labelledby={titleId}
-      className="sheet"
+      className={`sheet ${variant === "dialog" ? "centered-dialog" : ""}`}
+      aria-busy={busy || undefined}
       data-closing={closing || undefined}
       onCancel={(e) => {
         e.preventDefault();
@@ -299,9 +351,9 @@ export function Sheet({
       }}
     >
       <div className="sheet-inner">
-        <span className="sheet-handle" />
-        <div className="flex items-center justify-between mb-5">
-          <h2 id={titleId} className="text-xl font-bold">
+        {variant === "sheet" && <span className="sheet-handle" aria-hidden="true" />}
+        <div className="sheet-header">
+          <h2 id={titleId} tabIndex={-1}>
             {title}
           </h2>
           <button
@@ -309,11 +361,13 @@ export function Sheet({
             className="icon-button"
             aria-label="닫기"
             onClick={requestClose}
+            disabled={busy}
           >
             <X size={20} />
           </button>
         </div>
-        {children}
+        <div className="sheet-body">{children}</div>
+        {footer && <div className="sheet-footer">{footer}</div>}
       </div>
     </dialog>
   );

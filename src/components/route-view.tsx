@@ -3,6 +3,7 @@ import Link from "next/link";
 import { AUTH_GUARD_DISABLED } from "@/lib/api";
 import { AuthScreen, Welcome } from "@/screens/auth";
 import { RegionScreen } from "@/screens/region";
+import { UserRegionScreen } from "@/screens/user-region";
 import { FacilityDetail, HomeScreen, SearchScreen } from "@/screens/facilities";
 import {
   BookingScreen,
@@ -39,7 +40,8 @@ export function RouteView({ segments }: { segments: string[] }) {
   if (path === "/admin/login") return <AuthScreen account="admin" />;
   if (path === "/admin/register")
     return <AuthScreen account="admin" register />;
-  if (path.endsWith("/setup-region")) return <RegionScreen />;
+  if (path === "/setup-region") return <UserRegionScreen />;
+  if (path === "/admin/setup-region") return <RegionScreen />;
   if (path === "/home") return <HomeScreen />;
   if (path === "/chat") return <SearchScreen chat />;
   if (path === "/facilities") return <SearchScreen />;

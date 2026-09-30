@@ -4,6 +4,7 @@ import "@fontsource-variable/inter";
 import "./globals.css";
 import "./motion.css";
 import { AppShell } from "@/components/shell";
+import { FeedbackProvider } from "@/components/feedback";
 export const metadata: Metadata = {
   title: "CheChe · 공공 체육시설",
   description: "우리 동네 체육시설 탐색과 예약, 사진 기반 안전점검",
@@ -22,7 +23,7 @@ export default function RootLayout({
   return (
     <html lang="ko">
       <body>
-        <AppShell>{children}</AppShell>
+        <FeedbackProvider><AppShell>{children}</AppShell></FeedbackProvider>
       </body>
     </html>
   );

@@ -51,7 +51,8 @@ export function InspectionNew() {
           method: "POST",
           body: form,
         }),
-      (i) => router.replace(`/admin/inspections/${i.id}`),
+      (i) => router.replace(i?.id ? `/admin/inspections/${i.id}` : "/admin/inspections"),
+      "사진 점검이 등록되었습니다.",
     );
   }
   return (
@@ -285,6 +286,7 @@ export function InspectionConfirm({ id }: { id: string }) {
           }),
         }),
       () => router.replace(`/admin/inspections/${id}/report`),
+      "검토 및 조치 내용이 저장되었습니다.",
     );
   }
   return (
@@ -294,9 +296,6 @@ export function InspectionConfirm({ id }: { id: string }) {
         <DataState {...resource} retry={resource.reload}>
           {i ? (
             <form onSubmit={submit} className="space-y-5">
-              <div className="notice green justify-center">
-                <Check size={16} /> AI 분석 검토
-              </div>
               <h2 className="font-semibold text-lg">최종 결함 정보</h2>
               <Field label="결함 유형">
                 <input readOnly value={label(i.defectType)} />
@@ -394,6 +393,7 @@ export function InspectionReport({ id }: { id: string }) {
         anchor.remove();
         setTimeout(() => URL.revokeObjectURL(url), 1000);
       },
+      "보고서 다운로드를 시작했습니다.",
     );
   }
   return (
@@ -403,7 +403,6 @@ export function InspectionReport({ id }: { id: string }) {
         <DataState {...resource} retry={resource.reload}>
           {i ? (
             <>
-              <p className="report-steps">① 기본 정보　② 사진·조치　③ 완료</p>
               <SectionTitle>기본 정보</SectionTitle>
               <div className="info-list report-info">
                 <p>

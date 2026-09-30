@@ -38,6 +38,8 @@ export function MyScreen() {
   const [favorites, setFavorites] = useState<Facility[]>([]);
   const [sheet, setSheet] = useState("");
   const [sports, setSports] = useState<string[]>([]);
+  const [draftSports, setDraftSports] = useState<string[]>([]);
+  const preference = useMutation();
   useEffect(() => {
     try {
       setFavorites(
@@ -111,7 +113,7 @@ export function MyScreen() {
         )}
         <SectionTitle>설정</SectionTitle>
         <div className="settings-list">
-          <button onClick={() => setSheet("sports")}>
+          <button onClick={() => { setDraftSports(sports); preference.setError(""); setSheet("sports"); }}>
             <strong>운동 선호 설정</strong>
             <span>{sports.join(" · ") || "선택하기"} ›</span>
           </button>
@@ -152,6 +154,13 @@ export function MyScreen() {
                 : "이용 안내"
           }
           onClose={() => setSheet("")}
+          variant={sheet === "account" ? "dialog" : "sheet"}
+          busy={preference.busy}
+          footer={sheet === "sports" ? (
+            <Button busy={preference.busy} onClick={() => preference.run(async () => {
+              localStorage.setItem(`checheSports:${profile?.userId}`, JSON.stringify(draftSports));
+            }, () => { setSports(draftSports); setSheet(""); }, "운동 선호 설정이 저장되었습니다.")}>저장하기</Button>
+          ) : <Button onClick={() => setSheet("")}>확인</Button>}
         >
           {sheet === "sports" ? (
             <>
@@ -163,9 +172,10 @@ export function MyScreen() {
                   (s) => (
                     <button
                       key={s}
-                      className={sports.includes(s) ? "selected" : ""}
+                      className={draftSports.includes(s) ? "selected" : ""}
+                      aria-pressed={draftSports.includes(s)}
                       onClick={() =>
-                        setSports((v) =>
+                        setDraftSports((v) =>
                           v.includes(s) ? v.filter((x) => x !== s) : [...v, s],
                         )
                       }
@@ -175,18 +185,7 @@ export function MyScreen() {
                   ),
                 )}
               </div>
-              <Button
-                className="mt-6"
-                onClick={() => {
-                  localStorage.setItem(
-                    `checheSports:${profile?.userId}`,
-                    JSON.stringify(sports),
-                  );
-                  setSheet("");
-                }}
-              >
-                저장하기
-              </Button>
+              <ErrorMessage message={preference.error} />
             </>
           ) : sheet === "account" ? (
             <div className="info-list">
@@ -295,7 +294,8 @@ export function NewReportScreen() {
           method: "POST",
           body: form,
         }),
-      (r) => router.replace(`/reports/${r.id}`),
+      (r) => router.replace(r?.id ? `/reports/${r.id}` : "/reports"),
+      "개선 요청이 접수되었습니다.",
     );
   }
   return (

@@ -47,7 +47,11 @@ export function CalendarSheet({
   const days = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
   const today = localDate();
   return (
-    <Sheet title="날짜 선택" onClose={onClose}>
+    <Sheet title="날짜 선택" onClose={onClose} footer={
+      <Button disabled={selected < today} onClick={() => { onSelect(selected); onClose(); }}>
+        이 날짜로 이용 시간 확인
+      </Button>
+    }>
       <p className="muted text-xs">이용할 날짜를 선택해주세요.</p>
       <div className="calendar-month">
         <button
@@ -97,18 +101,10 @@ export function CalendarSheet({
           );
         })}
       </div>
-      <div className="notice blue my-5">
+      <div className="notice blue mt-5">
         <small>선택한 날짜</small>
         <strong className="block mt-1">{dateLabel(selected)}</strong>
       </div>
-      <Button
-        onClick={() => {
-          onSelect(selected);
-          onClose();
-        }}
-      >
-        이 날짜로 이용 시간 확인
-      </Button>
     </Sheet>
   );
 }
@@ -189,7 +185,8 @@ export function BookingScreen({ id }: { id: string }) {
           throw e;
         }
       },
-      (r) => router.push(`/reservations/${r.id}?created=true`),
+      (r) => router.push(r?.id ? `/reservations/${r.id}` : "/reservations"),
+      "예약이 완료되었습니다.",
     );
   }
   return (
@@ -466,7 +463,6 @@ export function ReservationDetail({ id }: { id: string }) {
   const resource = useApi<Reservation>(`/api/user/reservations/${id}`);
   const [confirm, setConfirm] = useState(false);
   const mutation = useMutation();
-  const params = useSearchParams();
   return (
     <>
       <Header title="예약 상세" back="/reservations" />
@@ -474,12 +470,6 @@ export function ReservationDetail({ id }: { id: string }) {
         <DataState {...resource} retry={resource.reload}>
           {resource.data && (
             <>
-              {params.get("created") === "true" &&
-                resource.data.status === "CONFIRMED" && (
-                  <div className="notice green mb-5">
-                    <Check size={20} /> 예약이 완료되었습니다.
-                  </div>
-                )}
               <Badge value={resource.data.status} />
               <h2 className="text-xl font-bold mt-5">
                 {resource.data.facilityName}
@@ -523,21 +513,17 @@ export function ReservationDetail({ id }: { id: string }) {
                 <Button
                   variant="ghost"
                   className="mt-3"
-                  onClick={() => setConfirm(true)}
+                  onClick={() => { mutation.setError(""); setConfirm(true); }}
                 >
                   예약 취소
                 </Button>
               )}
-              <ErrorMessage message={mutation.error} />
             </>
           )}
         </DataState>
       </div>
       {confirm && (
-        <Sheet title="예약을 취소할까요?" onClose={() => setConfirm(false)}>
-          <p className="muted text-sm">
-            취소한 시간은 다른 이용자가 예약할 수 있습니다.
-          </p>
+        <Sheet title="예약을 취소할까요?" variant="dialog" busy={mutation.busy} onClose={() => setConfirm(false)} footer={<>
           <Button
             variant="danger"
             className="mt-6"
@@ -552,6 +538,7 @@ export function ReservationDetail({ id }: { id: string }) {
                   setConfirm(false);
                   resource.reload();
                 },
+                "예약이 취소되었습니다.",
               )
             }
           >
@@ -560,10 +547,13 @@ export function ReservationDetail({ id }: { id: string }) {
           <Button
             variant="ghost"
             className="mt-2"
+            disabled={mutation.busy}
             onClick={() => setConfirm(false)}
           >
             예약 유지
           </Button>
+        </>}>
+          <p className="muted text-sm">취소한 시간은 다른 이용자가 예약할 수 있습니다.</p>
           <ErrorMessage message={mutation.error} />
         </Sheet>
       )}

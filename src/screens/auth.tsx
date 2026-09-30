@@ -1,9 +1,9 @@
 "use client";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { DesignGraphic } from "@/components/design-assets";
-import { Button, ErrorMessage, Field, Sheet } from "@/components/ui";
+import { Button, CompletionState, ErrorMessage, Field, Notice, Sheet } from "@/components/ui";
 import { api, DEMO_MODE, jsonBody, saveLogin } from "@/lib/api";
 import { useMutation } from "@/lib/hooks";
 import type { Account, LoginResponse } from "@/lib/types";
@@ -32,6 +32,7 @@ export function AuthScreen({
   register?: boolean;
 }) {
   const router = useRouter();
+  const params = useSearchParams();
   const mutation = useMutation();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -77,20 +78,20 @@ export function AuthScreen({
       <Link href="/" className="auth-logo" aria-label="시작 화면">
         <DesignGraphic name="logo" label="국민체육진흥공단" />
       </Link>
-      {register && (
+      {register && !done && (
         <h1 className="text-xl font-bold mb-5">
           {account === "admin" ? "관리자 " : ""}회원가입
         </h1>
       )}
       {done ? (
-        <div className="space-y-4">
-          <p className="notice green">회원가입이 완료되었습니다.</p>
+        <CompletionState title="회원가입이 완료되었습니다!" description="가입한 계정으로 로그인해 서비스를 시작하세요.">
           <Link className="button primary" href={loginPath}>
             로그인하기
           </Link>
-        </div>
+        </CompletionState>
       ) : (
         <form onSubmit={submit} className="auth-form">
+          {!register && params.get("reason") === "expired" && <Notice tone="warning" className="mb-4">로그인이 만료되었습니다. 다시 로그인해주세요.</Notice>}
           <label className="sr-only" htmlFor="username">
             아이디
           </label>
@@ -100,9 +101,9 @@ export function AuthScreen({
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             autoComplete="username"
-            minLength={4}
+            minLength={register ? 4 : undefined}
             maxLength={50}
-            pattern="[A-Za-z0-9._\-]{4,50}"
+            pattern={register ? "[A-Za-z0-9._\\-]{4,50}" : undefined}
             title="4~50자의 영문, 숫자, 점, 밑줄, 하이픈"
             placeholder="아이디 입력하기"
           />
@@ -113,7 +114,7 @@ export function AuthScreen({
             id="password"
             required
             type="password"
-            minLength={8}
+            minLength={register ? 8 : undefined}
             maxLength={72}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
@@ -165,7 +166,7 @@ export function AuthScreen({
           </Link>
         </>
       )}
-      {register && (
+      {register && !done && (
         <Link className="auth-register" href={loginPath}>
           이미 계정이 있어요 · 로그인
         </Link>
@@ -191,14 +192,11 @@ export function AuthScreen({
         </div>
       )}
       {help && (
-        <Sheet title="계정 찾기 안내" onClose={() => setHelp(false)}>
+        <Sheet title="계정 찾기 안내" variant="dialog" onClose={() => setHelp(false)} footer={<Button onClick={() => setHelp(false)}>확인</Button>}>
           <p className="muted leading-7">
             아이디·비밀번호 찾기는 현재 지원 준비 중입니다. 계정을 발급한 운영
             담당자에게 문의해주세요.
           </p>
-          <Button className="mt-6" onClick={() => setHelp(false)}>
-            확인
-          </Button>
         </Sheet>
       )}
     </div>

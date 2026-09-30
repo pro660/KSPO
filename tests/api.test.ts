@@ -1,6 +1,6 @@
 import { afterEach, test } from "node:test";
 import assert from "node:assert/strict";
-import { api, ApiError, AUTH_GUARD_DISABLED, tokenKey } from "../src/lib/api";
+import { api, ApiError, AUTH_GUARD_DISABLED, photoUrl, saveLogin, tokenKey } from "../src/lib/api";
 import { canCancel, canReserve, endTime, safeUrl } from "../src/lib/format";
 import type { Facility, Reservation } from "../src/lib/types";
 const originalFetch = globalThis.fetch;
@@ -33,7 +33,7 @@ test("Gateway only, account token separation and no internal headers", async () 
   memory.set(tokenKey("admin"), "admin-token");
   memory.set(tokenKey("user"), "user-token");
   globalThis.fetch = async (input, init) => {
-    assert.equal(input, "http://localhost:8080/api/facilities");
+    assert.equal(input, "/gateway/api/facilities");
     const h = new Headers(init?.headers);
     assert.equal(h.get("Authorization"), "Bearer admin-token");
     assert.equal(h.get("X-User-Id"), null);
@@ -74,7 +74,7 @@ test("empty 401 clears only the affected account and respects the redirect guard
   );
   assert.equal(memory.has(tokenKey("admin")), false);
   assert.equal(memory.get(tokenKey("user")), "u");
-  assert.equal(redirect, AUTH_GUARD_DISABLED ? "" : "/admin/login");
+  assert.equal(redirect, AUTH_GUARD_DISABLED ? "" : "/admin/login?reason=expired");
 });
 test("428 respects the setup redirect guard without clearing JWT", async () => {
   memory.set(tokenKey("user"), "u");
@@ -126,4 +126,49 @@ test("reservations require internal operating facilities and cancel before start
   );
   assert.equal(endTime("21:00:00"), "22:00");
   assert.equal(safeUrl("javascript:alert(1)"), undefined);
+});
+
+test("public auth strips a supplied bearer and sends uncached JSON requests", async () => {
+  memory.set(tokenKey("user"), "stored-token");
+  globalThis.fetch = async (input, init) => {
+    assert.equal(input, "/gateway/auth/user/login");
+    const headers = new Headers(init?.headers);
+    assert.equal(headers.get("authorization"), null);
+    assert.equal(headers.get("x-user-account"), null);
+    assert.equal(headers.get("accept"), "application/json");
+    assert.equal(init?.credentials, "omit");
+    assert.equal(init?.cache, "no-store");
+    return new Response(null, { status: 401 });
+  };
+  await assert.rejects(api("/auth/user/login", "user", { headers: { Authorization: "Bearer stale", "X-User-Account": "admin" } }, { public: true }), /아이디 또는 비밀번호/);
+  assert.equal(memory.get(tokenKey("user")), "stored-token");
+  assert.equal(redirect, "");
+});
+
+test("invalid login payload cannot persist an undefined token", () => {
+  for (const payload of [undefined, {}, { accessToken: "" }]) {
+    assert.throws(() => saveLogin("user", payload as never), ApiError);
+    assert.equal(memory.has(tokenKey("user")), false);
+  }
+});
+
+test("network errors and malformed API responses remain explicit errors", async () => {
+  globalThis.fetch = async () => { throw new TypeError("Network failure"); };
+  await assert.rejects(api("/api/users/me", "user"), (e: unknown) => e instanceof ApiError && e.status === 0);
+  globalThis.fetch = async () => new Response("<html>tunnel warning</html>");
+  await assert.rejects(api("/api/users/me", "user"), /서버 응답 형식/);
+  const abort = new DOMException("Aborted", "AbortError");
+  globalThis.fetch = async () => { throw abort; };
+  await assert.rejects(api("/api/users/me", "user"), (e: unknown) => e === abort);
+});
+
+test("API paths cannot target another origin; relative photos use Gateway", async () => {
+  for (const path of ["//evil.test/api", "https://evil.test/api", "/\\evil.test"]) {
+    await assert.rejects(api(path, "user"), /API 경로/);
+  }
+  assert.equal(photoUrl("/uploads/photo.jpg"), "/gateway/uploads/photo.jpg");
+  assert.equal(photoUrl("uploads/photo.jpg"), "/gateway/uploads/photo.jpg");
+  assert.equal(photoUrl("https://images.example.test/photo.jpg"), "https://images.example.test/photo.jpg");
+  assert.equal(photoUrl("javascript:alert(1)"), undefined);
+  assert.equal(photoUrl("//evil.test/photo.jpg"), undefined);
 });

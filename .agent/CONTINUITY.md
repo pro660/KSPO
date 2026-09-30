@@ -1,0 +1,25 @@
+[PLANS]
+- 2026-09-30T14:29:38+09:00 [USER] Add a customized user region setup page based on admin region setup. User then reported the whole ChatGPT desktop window, including chat, disappears when answers arrive.
+- 2026-09-30T09:49:46+09:00 [USER] Replace the fixed upper-left time with the current time.
+- 2026-09-30T14:12:45+09:00 [USER] Standardize all popup/completion/error layouts, add missing feedback and reduce duplicates, then diagnose/fix CORS and backend integration. User further asked why login produces no backend log; confirmed calls append feature paths to env base URL.
+
+[DECISIONS]
+- 2026-09-30T14:29:38+09:00 [CODE] Dedicated UserRegionScreen at /setup-region reuses RegionPicker, preselects current region, supports changes from My, previews services and saves regionCode to user API. Session updateProfile applies fetched profile before navigation, avoiding stale setup guard redirects; same region skips PUT.
+- 2026-09-30T09:49:46+09:00 [CODE] StatusClock uses device-local H:mm, updates each second and on visibility changes, and initializes after mount to avoid hydration differences.
+- 2026-09-30T14:12:45+09:00 [CODE] Shared Sheet supports centered dialogs, fixed headers/footers, scrollable body, focus restoration and busy close protection. CompletionState and single dismissible success toast replace duplicate notices; errors remain inline. Sports selection is a draft until saved.
+- 2026-09-30T14:12:45+09:00 [CODE] Browser APIs use /gateway; server forwards to CHECHE_API_BASE_URL or legacy NEXT_PUBLIC_CHECHE_API_BASE_URL. Existing .env.local unchanged. JWT auth retained, internal headers/cookies stripped, no cache, fixed upstream, ngrok API header, timeout and safe method/path/status/request-ID logs. Registration-only validation removed from login.
+
+[PROGRESS]
+- 2026-09-30T09:49:46+09:00 [CODE] Updated shell and README; added a minimal Docker workflow per workspace instructions.
+
+[DISCOVERIES]
+- 2026-09-30T14:36:18+09:00 [TOOL] Global config root notify invoked bundled codex-computer-use.exe turn-ended. This is a candidate for answer-end window disappearance, not a proven cause. App logs show ResizeObserver errors but no matched explicit quit/crash lifecycle; prompt router hook only runs UserPromptSubmit.
+- 2026-09-30T09:49:46+09:00 [TOOL] Docker is unavailable on PATH; Node/npm are available. No lint script is configured. Existing next-env.d.ts modification is unrelated and preserved.
+- 2026-09-30T14:12:45+09:00 [TOOL] Actual env demo/guard both false; upstream is ngrok. Browser-like GET returned HTML ERR_NGROK_6024 without CORS; ngrok-skip-browser-warning produced backend 401. OPTIONS for localhost:3000 returned 200 with correct CORS. Empty-JSON auth probes then returned ERR_NGROK_3004 and ERR_NGROK_3200 (invalid upstream HTTP, then offline tunnel). No real account credentials used or printed. Actual backend logging configuration UNCONFIRMED; backend source is absent here.
+
+[OUTCOMES]
+- 2026-09-30T14:36:18+09:00 [TOOL] User explicitly requested app repair. Backed up ~/.codex/config.toml to config.toml.before-window-fix-20260930-143618.bak, changed only known notify entry to notify = [], and verified exact readback. Other settings unchanged. Actual answer-completion behavior and whether running session reloads notify remain UNCONFIRMED; restart once to ensure new config loads, then validate window stays open.
+- 2026-09-30T14:29:38+09:00 [TOOL] User-region typecheck, 22 tests and build passed; lint unavailable (missing script). CUA local mock verified My link, selection discard/search/save, profile update, first_user initial setup + home transition, same-region continuation, 320x480 popup footer/no horizontal overflow and zero console warnings/errors. Screenshot .agent/qa/user-region.png (375x812); temporary browser closed and viewport reset. Actual backend integration remains UNCONFIRMED due earlier offline tunnel.
+- 2026-09-30T14:29:38+09:00 [TOOL] ChatGPT processes respond; recent 30-minute Application events 1000/1001 query returned no matching ChatGPT/Codex crash entries (not proof of no crash). Only test browser tab was explicitly closed, not app. Window disappearance cause UNCONFIRMED.
+- 2026-09-30T09:58:06+09:00 [TOOL] Validation complete: typecheck, 11 tests, and production build passed using existing local dependencies. Lint attempted but unavailable because package.json has no lint script. Browser visual verification not performed.
+- 2026-09-30T14:12:45+09:00 [TOOL] Current typecheck, 22 tests, production build passed. Lint attempted: missing script. CUA with local fixture verified registration completion, short-credential login request, centered help + Escape/focus restore, sports discard/save, 320x480 scrollable region/admin sheets, cancellation error (one populated alert), busy controls and successful retry. 375x667 toast clears bottom nav. Final real proxy GET still returned 502 backend connection interrupted at 2026-09-30T05:12:44Z. Remote tunnel/service restart and valid-account end-to-end login remain external requirements.

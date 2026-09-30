@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "./api";
 import type { Account } from "./types";
+import { useFeedback } from "@/components/feedback";
 export function useApi<T>(path: string | null, account: Account = "user") {
   const [data, setData] = useState<T>();
   const [error, setError] = useState("");
@@ -10,6 +11,7 @@ export function useApi<T>(path: string | null, account: Account = "user") {
   const reload = useCallback(() => setVersion((v) => v + 1), []);
   useEffect(() => {
     if (!path) {
+      setError("");
       setLoading(false);
       setData(undefined);
       return;
@@ -33,10 +35,11 @@ export function useApi<T>(path: string | null, account: Account = "user") {
   return { data, error, loading, reload, setData };
 }
 export function useMutation() {
+  const notify = useFeedback();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const lock = useRef(false);
-  async function run<T>(work: () => Promise<T>, success?: (value: T) => void) {
+  async function run<T>(work: () => Promise<T>, success?: (value: T) => void, successMessage?: string) {
     if (lock.current) return;
     lock.current = true;
     setBusy(true);
@@ -44,6 +47,7 @@ export function useMutation() {
     try {
       const value = await work();
       success?.(value);
+      if (successMessage) notify(successMessage);
       return value;
     } catch (e) {
       setError(e instanceof Error ? e.message : "요청을 처리하지 못했습니다.");
