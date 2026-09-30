@@ -1,4 +1,7 @@
-import type { Facility, Reservation } from "./types";
+import type { Facility, Reservation, Inspection } from "./types";
+export const isUrgentInspection = (inspection: Inspection) =>
+  inspection.actionStatus !== "RESOLVED" &&
+  ["HIGH", "CRITICAL"].includes(inspection.severity);
 export const labels: Record<string, string> = {
   OPERATING: "운영 중",
   UNDER_INSPECTION: "점검 중",
@@ -36,6 +39,11 @@ export const label = (value?: string | null) =>
 export function localDate(date = new Date()) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
+export function isCalendarDate(value: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const date = new Date(`${value}T12:00:00`);
+  return !Number.isNaN(date.getTime()) && localDate(date) === value;
+}
 export function dateLabel(value: string) {
   return new Date(
     value.length === 10 ? `${value}T12:00:00` : value,
@@ -46,9 +54,12 @@ export function dateLabel(value: string) {
     weekday: "short",
   });
 }
-export function canReserve(f: Facility) {
+export function canReserve(f: Facility, regionCode?: string | null) {
   return (
-    Number.isInteger(f.id) &&
+    Number.isSafeInteger(f.id) &&
+    Number(f.id) > 0 &&
+    (regionCode === undefined ||
+      (!!regionCode && f.regionCode === regionCode)) &&
     f.status === "OPERATING" &&
     f.source !== "SEOUL_OPEN_API" &&
     f.source !== "KSPO_OPEN_API"
@@ -68,7 +79,11 @@ export function safeUrl(value?: string | null) {
   if (!value) return undefined;
   try {
     const u = new URL(value);
-    return ["http:", "https:"].includes(u.protocol) ? u.href : undefined;
+    return ["http:", "https:"].includes(u.protocol) &&
+      !u.username &&
+      !u.password
+      ? u.href
+      : undefined;
   } catch {
     return undefined;
   }

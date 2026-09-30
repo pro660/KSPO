@@ -23,7 +23,9 @@ export default function RootLayout({
   return (
     <html lang="ko">
       <body>
-        <FeedbackProvider><AppShell>{children}</AppShell></FeedbackProvider>
+        <FeedbackProvider>
+          <AppShell>{children}</AppShell>
+        </FeedbackProvider>
       </body>
     </html>
   );

@@ -150,9 +150,21 @@ export function AdminManagement() {
         )}
       </div>
       {selected && (
-        <Sheet title="관리자 권한 변경" busy={mutation.busy} onClose={() => setSelected(undefined)} footer={
-          <Button form="admin-authority-form" type="submit" busy={mutation.busy} disabled={regions.loading || !!regions.error}>권한 변경 저장</Button>
-        }>
+        <Sheet
+          title="관리자 권한 변경"
+          busy={mutation.busy}
+          onClose={() => setSelected(undefined)}
+          footer={
+            <Button
+              form="admin-authority-form"
+              type="submit"
+              busy={mutation.busy}
+              disabled={regions.loading || !!regions.error}
+            >
+              권한 변경 저장
+            </Button>
+          }
+        >
           <form id="admin-authority-form" onSubmit={save} className="space-y-4">
             <p className="font-bold">{selected.username}</p>
             <Field label="역할">

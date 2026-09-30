@@ -47,6 +47,7 @@ test("super administrators receive their own navigation on dashboard and shared 
     );
   }
   for (const path of ["/admin/regions", "/admin/admins", "/admin/urgent"]) {
+    assert.equal(getNavigation(path, "REGIONAL_ADMIN")?.kind, "manager");
     assert.equal(getNavigation(path)?.kind, "super");
     assert.equal(getNavigation(path)?.activeHref, path);
   }

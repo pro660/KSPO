@@ -75,6 +75,8 @@ npm run dev
 
 ## 샘플 미리보기
 
+프로덕션 빌드에서는 `NEXT_PUBLIC_CHECHE_DISABLE_AUTH_GUARD` 값과 관계없이 인증·권한 가드가 적용됩니다.
+
 페이지 접근 가드만 임시 해제하려면 `.env.local`에 `NEXT_PUBLIC_CHECHE_DISABLE_AUTH_GUARD=true`를 설정하고 개발 서버를 재시작하세요. 로그인·지역 설정 자동 이동, 관리자 화면 권한 가드, 프로필 조회 중·실패 시 화면 차단을 생략합니다. API의 401·428 응답도 자동 이동 없이 오류로 표시합니다. 실제 Gateway 인증은 유지되므로 인증이 필요한 데이터는 로그인 후 조회·저장할 수 있습니다. 원복은 해당 값을 `false`로 바꾸고 재시작하면 됩니다.
 
 Gateway 없이 UI를 확인하려면 `.env.local`에서 `NEXT_PUBLIC_CHECHE_DEMO_MODE=true`로 명시하고 개발 서버를 재시작하세요. 샘플 배지가 표시되고 변경 사항은 브라우저에만 저장됩니다. 실제 API를 호출하지 않습니다.
@@ -98,6 +100,10 @@ npm run build
 화면 검증용 로컬 가짜 서버는 `node tests/fixtures/gateway.mjs`로 실행합니다. 별도 PowerShell 터미널에서 `$env:CHECHE_API_BASE_URL='http://127.0.0.1:9091'; node node_modules/next/dist/bin/next start --hostname 127.0.0.1 --port 3001`로 빌드된 앱을 실행한 뒤 `http://127.0.0.1:3001`에서 검증합니다. 이 서버는 실제 계정을 사용하지 않으며 재시작하면 초기화됩니다. 예약 취소 첫 시도는 오류, 다음 시도는 성공하도록 구성해 오류·완료 안내를 점검할 수 있습니다. 실제 연동 터미널의 환경변수는 변경하지 마세요.
 
 로컬 화면 검증 서버에서 `first_user`로 로그인하면 지역이 없는 신규 사용자 흐름을 확인할 수 있습니다(가짜 비밀번호 사용). 지역을 저장하면 다음 프로필 조회에 반영됩니다.
+
+테스트 관리자 아이디는 `regional`(지역 관리자), `super`(슈퍼 관리자), `suspended`(정지 계정)입니다. 기존 개발 서버와 동시에 검증하려면 별도 터미널에서 `CHECHE_DIST_DIR=.next-qa` 환경변수와 다른 포트를 사용하세요. 빌드와 실행에 동일한 출력 경로를 지정해야 합니다.
+
+프록시는 `src/lib/paths.ts`의 명세 경로·HTTP 메서드만 전달합니다. JSON 등 일반 요청은 64KiB, 사진 multipart 요청 전체는 16MiB로 제한하며 사진 1장 제한은 15MB입니다. 신규 API를 연동할 때는 허용 목록도 갱신하세요. 서버의 JWT·리소스 소유권 검사는 별도로 유지해야 합니다.
 
 관리자 로그인 후 `/admin/inspections/1`은 인증 헤더가 있어야 표시되는 테스트 사진과 유사 사례 카드 간격을, `/admin/inspections/2`는 사진 404 안내와 재시도를 검증합니다. 두 화면의 데이터는 로컬 fixture 전용입니다.
 

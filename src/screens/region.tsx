@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { MapPin, Check, Search } from "lucide-react";
@@ -35,11 +36,24 @@ export function RegionPicker({
   const [selected, setSelected] = useState(value);
   const filtered = regions.filter((r) => r.regionName.includes(query.trim()));
   return (
-    <Sheet title="시·군·구 선택" onClose={onClose} footer={
-      <Button disabled={!regions.some((r) => r.regionCode === selected)} onClick={() => { onSelect(selected); onClose(); }}>
-        {regions.find((r) => r.regionCode === selected)?.regionName.replace("서울특별시 ", "") ?? "지역"} 선택 완료
-      </Button>
-    }>
+    <Sheet
+      title="시·군·구 선택"
+      onClose={onClose}
+      footer={
+        <Button
+          disabled={!regions.some((r) => r.regionCode === selected)}
+          onClick={() => {
+            onSelect(selected);
+            onClose();
+          }}
+        >
+          {regions
+            .find((r) => r.regionCode === selected)
+            ?.regionName.replace("서울특별시 ", "") ?? "지역"}{" "}
+          선택 완료
+        </Button>
+      }
+    >
       <div className="search-input">
         <Search size={17} />
         <input
@@ -50,20 +64,24 @@ export function RegionPicker({
         />
       </div>
       <div className="district-grid">
-        {filtered
-          .map((r) => (
-            <button
-              type="button"
-              key={r.regionCode}
-              aria-pressed={selected === r.regionCode}
-              className={selected === r.regionCode ? "selected" : ""}
-              onClick={() => setSelected(r.regionCode)}
-            >
-              {r.regionName.replace("서울특별시 ", "")}
-            </button>
-          ))}
+        {filtered.map((r) => (
+          <button
+            type="button"
+            key={r.regionCode}
+            aria-pressed={selected === r.regionCode}
+            className={selected === r.regionCode ? "selected" : ""}
+            onClick={() => setSelected(r.regionCode)}
+          >
+            {r.regionName.replace("서울특별시 ", "")}
+          </button>
+        ))}
       </div>
-      {!filtered.length && <Empty title="검색 결과가 없어요" description="다른 지역 이름으로 검색해주세요." />}
+      {!filtered.length && (
+        <Empty
+          title="검색 결과가 없어요"
+          description="다른 지역 이름으로 검색해주세요."
+        />
+      )}
     </Sheet>
   );
 }
@@ -80,7 +98,8 @@ export function RegionScreen() {
   const [open, setOpen] = useState(false);
   const regions = listOf(resource.data);
   const region = regions.find((r) => r.regionCode === selected);
-  const locked = admin && !!profile?.regionCode;
+  const locked =
+    admin && (!!profile?.regionCode || profile?.role === "SUPER_USER");
   async function save() {
     if (!region) return;
     await mutation.run(
@@ -102,6 +121,7 @@ export function RegionScreen() {
     <>
       <Header
         title={admin ? "관리 지역 설정" : "내 지역 설정"}
+        back={locked ? "/admin" : undefined}
         badge={<Badge>{admin ? "최초 1회" : "서울 지역"}</Badge>}
       />
       <div className="page-content region-page">
@@ -140,7 +160,9 @@ export function RegionScreen() {
             {admin ? "관리" : "이용"} 범위 미리보기
           </h3>
           <div className="region-preview mt-3">
-            <strong>{region?.regionName || "서울특별시"}</strong>
+            <strong>
+              {region?.regionName || profile?.regionName || "서울특별시"}
+            </strong>
             <p className="text-link mt-2">
               {admin ? "공공 체육시설 관리" : "우리 동네 공공 체육시설"}
             </p>
@@ -152,21 +174,29 @@ export function RegionScreen() {
           </div>
           {admin && (
             <p className="notice amber mt-5">
-              {locked
-                ? "이미 관리 지역이 설정되었습니다. 지역 변경은 슈퍼 관리자가 진행합니다."
-                : "담당 지역은 최초 1회만 직접 설정할 수 있습니다."}
+              {profile?.role === "SUPER_USER"
+                ? "슈퍼 관리자는 전체 지역을 관리합니다."
+                : locked
+                  ? "이미 관리 지역이 설정되었습니다. 지역 변경은 슈퍼 관리자가 진행합니다."
+                  : "담당 지역은 최초 1회만 직접 설정할 수 있습니다."}
             </p>
           )}
           <ErrorMessage message={mutation.error} />
-          <Button
-            className="mt-7"
-            disabled={!region || locked}
-            busy={mutation.busy}
-            onClick={save}
-          >
-            {region?.regionName.replace("서울특별시 ", "") || "지역 선택 후"}{" "}
-            {admin ? "관리 시작하기" : "이용 시작하기"}
-          </Button>
+          {locked ? (
+            <Link className="button primary mt-7" href="/admin">
+              관리자 홈으로 돌아가기
+            </Link>
+          ) : (
+            <Button
+              className="mt-7"
+              disabled={!region || locked}
+              busy={mutation.busy}
+              onClick={save}
+            >
+              {region?.regionName.replace("서울특별시 ", "") || "지역 선택 후"}{" "}
+              {admin ? "관리 시작하기" : "이용 시작하기"}
+            </Button>
+          )}
         </DataState>
       </div>
       {open && (

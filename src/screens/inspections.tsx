@@ -18,7 +18,8 @@ import {
   Tabs,
 } from "@/components/ui";
 import { api, jsonBody } from "@/lib/api";
-import { dateLabel, label } from "@/lib/format";
+import { dateLabel, label, isUrgentInspection } from "@/lib/format";
+import { isResourceId } from "@/lib/paths";
 import { useApi, useMutation } from "@/lib/hooks";
 import {
   listOf,
@@ -52,7 +53,10 @@ export function InspectionNew() {
           method: "POST",
           body: form,
         }),
-      (i) => router.replace(i?.id ? `/admin/inspections/${i.id}` : "/admin/inspections"),
+      (i) =>
+        router.replace(
+          i?.id ? `/admin/inspections/${i.id}` : "/admin/inspections",
+        ),
       "사진 점검이 등록되었습니다.",
     );
   }
@@ -154,7 +158,13 @@ function useInspection(id: string) {
   };
 }
 function InspectionPhoto({ inspection: i }: { inspection: Inspection }) {
-  return <RemotePhoto path={i.photoUrl} account="admin" alt={`${i.facilityName} 점검 사진`} />;
+  return (
+    <RemotePhoto
+      path={i.photoUrl}
+      account="admin"
+      alt={`${i.facilityName} 점검 사진`}
+    />
+  );
 }
 export function InspectionDetail({ id }: { id: string }) {
   const resource = useInspection(id);
@@ -262,13 +272,20 @@ export function InspectionConfirm({ id }: { id: string }) {
     const form = new FormData(e.currentTarget);
     const note = String(form.get("actionNote") ?? "");
     const due = String(form.get("due") ?? "");
+    const actionNote = due ? `${note}\n조치 예정일: ${due}` : note;
+    if (actionNote.length > 2000) {
+      mutation.setError(
+        "예정일을 포함한 조치 내용은 2,000자 이하로 입력해주세요.",
+      );
+      return;
+    }
     await mutation.run(
       () =>
         api(`/api/inspections/${id}/action`, "admin", {
           method: "PATCH",
           body: jsonBody({
             status: form.get("status"),
-            actionNote: due ? `${note}\n조치 예정일: ${due}` : note,
+            actionNote,
           }),
         }),
       () => router.replace(`/admin/inspections/${id}/report`),
@@ -472,6 +489,7 @@ export function InspectionsList({
   const rows = source
     .filter(
       (i) =>
+        (!urgent || isUrgentInspection(i)) &&
         (filter === "all" ||
           (filter === "urgent"
             ? ["HIGH", "CRITICAL"].includes(i.severity)
@@ -526,11 +544,7 @@ export function InspectionsList({
         )}
         {urgent && (
           <p className="muted text-sm mb-4">
-            미조치 {source.length}건 · 긴급/높음{" "}
-            {
-              source.filter((i) => ["HIGH", "CRITICAL"].includes(i.severity))
-                .length
-            }
+            긴급·높음 위험도의 미조치 {source.filter(isUrgentInspection).length}
             건
           </p>
         )}
@@ -557,6 +571,7 @@ export function InspectionsList({
                   { label: "전체", value: "all" },
                   { label: "조치 필요", value: "REPORTED" },
                   { label: "검토 중", value: "REVIEWING" },
+                  { label: "조치 예정", value: "ACTION_SCHEDULED" },
                   { label: "완료", value: "RESOLVED" },
                 ]
           }
@@ -620,11 +635,17 @@ export function HistoryScreen() {
   const [selected, setSelected] = useState(params.get("facilityId") ?? "");
   const [filter, setFilter] = useState("all");
   useEffect(() => {
-    if (!selected && listOf(facilities.data)[0])
+    if (
+      facilities.data &&
+      !listOf(facilities.data).some((f) => String(f.id) === selected) &&
+      listOf(facilities.data)[0]
+    )
       setSelected(String(listOf(facilities.data)[0].id));
   }, [facilities.data, selected]);
   const history = useApi<ListResponse<Inspection>>(
-    selected ? `/api/inspections/facilities/${selected}/history` : null,
+    isResourceId(selected)
+      ? `/api/inspections/facilities/${selected}/history`
+      : null,
     "admin",
   );
   const rows = listOf(history.data).filter(
@@ -686,7 +707,11 @@ export function HistoryScreen() {
             ]}
           />
         </div>
-        <DataState {...history} retry={history.reload}>
+        <DataState
+          loading={facilities.loading || history.loading}
+          error={history.error}
+          retry={history.reload}
+        >
           {rows.length ? (
             <ol className="timeline">
               {[...rows]

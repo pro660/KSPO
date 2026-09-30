@@ -1,6 +1,13 @@
 import { afterEach, test } from "node:test";
 import assert from "node:assert/strict";
-import { api, ApiError, AUTH_GUARD_DISABLED, photoUrl, saveLogin, tokenKey } from "../src/lib/api";
+import {
+  api,
+  ApiError,
+  AUTH_GUARD_DISABLED,
+  photoUrl,
+  saveLogin,
+  tokenKey,
+} from "../src/lib/api";
 import { canCancel, canReserve, endTime, safeUrl } from "../src/lib/format";
 import type { Facility, Reservation } from "../src/lib/types";
 const originalFetch = globalThis.fetch;
@@ -74,7 +81,10 @@ test("empty 401 clears only the affected account and respects the redirect guard
   );
   assert.equal(memory.has(tokenKey("admin")), false);
   assert.equal(memory.get(tokenKey("user")), "u");
-  assert.equal(redirect, AUTH_GUARD_DISABLED ? "" : "/admin/login?reason=expired");
+  assert.equal(
+    redirect,
+    AUTH_GUARD_DISABLED ? "" : "/admin/login?reason=expired",
+  );
 });
 test("428 respects the setup redirect guard without clearing JWT", async () => {
   memory.set(tokenKey("user"), "u");
@@ -140,7 +150,15 @@ test("public auth strips a supplied bearer and sends uncached JSON requests", as
     assert.equal(init?.cache, "no-store");
     return new Response(null, { status: 401 });
   };
-  await assert.rejects(api("/auth/user/login", "user", { headers: { Authorization: "Bearer stale", "X-User-Account": "admin" } }, { public: true }), /아이디 또는 비밀번호/);
+  await assert.rejects(
+    api(
+      "/auth/user/login",
+      "user",
+      { headers: { Authorization: "Bearer stale", "X-User-Account": "admin" } },
+      { public: true },
+    ),
+    /아이디 또는 비밀번호/,
+  );
   assert.equal(memory.get(tokenKey("user")), "stored-token");
   assert.equal(redirect, "");
 });
@@ -152,25 +170,68 @@ test("invalid login payload cannot persist an undefined token", () => {
   }
 });
 
+test("a late 401 from an old session cannot clear a newer login", async () => {
+  memory.set(tokenKey("user"), "old-token");
+  globalThis.fetch = async () => {
+    memory.set(tokenKey("user"), "new-token");
+    return new Response(null, { status: 401 });
+  };
+  await assert.rejects(api("/api/users/me", "user"), ApiError);
+  assert.equal(memory.get(tokenKey("user")), "new-token");
+  assert.equal(redirect, "");
+});
+
 test("network errors and malformed API responses remain explicit errors", async () => {
-  globalThis.fetch = async () => { throw new TypeError("Network failure"); };
-  await assert.rejects(api("/api/users/me", "user"), (e: unknown) => e instanceof ApiError && e.status === 0);
+  globalThis.fetch = async () => {
+    throw new TypeError("Network failure");
+  };
+  await assert.rejects(
+    api("/api/users/me", "user"),
+    (e: unknown) => e instanceof ApiError && e.status === 0,
+  );
   globalThis.fetch = async () => new Response("<html>tunnel warning</html>");
   await assert.rejects(api("/api/users/me", "user"), /서버 응답 형식/);
   const abort = new DOMException("Aborted", "AbortError");
-  globalThis.fetch = async () => { throw abort; };
-  await assert.rejects(api("/api/users/me", "user"), (e: unknown) => e === abort);
+  globalThis.fetch = async () => {
+    throw abort;
+  };
+  await assert.rejects(
+    api("/api/users/me", "user"),
+    (e: unknown) => e === abort,
+  );
 });
 
 test("API paths cannot target another origin; relative photos use Gateway", async () => {
-  for (const path of ["//evil.test/api", "https://evil.test/api", "/\\evil.test"]) {
+  for (const path of [
+    "//evil.test/api",
+    "https://evil.test/api",
+    "/\\evil.test",
+    "/api/../../secret",
+    "/api/%2e%2e/secret",
+    "/api/%252e%252e/secret",
+  ]) {
     await assert.rejects(api(path, "user"), /API 경로/);
   }
   assert.equal(photoUrl("/uploads/photo.jpg"), "/gateway/uploads/photo.jpg");
   assert.equal(photoUrl("uploads/photo.jpg"), "/gateway/uploads/photo.jpg");
-  assert.equal(photoUrl("/gateway/inspection-photos/photo.png"), "/gateway/inspection-photos/photo.png");
-  assert.equal(photoUrl("/inspection-photos/점검 사진.png"), "/gateway/inspection-photos/점검 사진.png");
-  assert.equal(photoUrl("https://images.example.test/photo.jpg"), "https://images.example.test/photo.jpg");
+  assert.equal(
+    photoUrl("/gateway/inspection-photos/photo.png"),
+    "/gateway/inspection-photos/photo.png",
+  );
+  assert.equal(
+    photoUrl("/inspection-photos/점검 사진.png"),
+    "/gateway/inspection-photos/점검 사진.png",
+  );
+  assert.equal(
+    photoUrl("https://images.example.test/photo.jpg"),
+    "https://images.example.test/photo.jpg",
+  );
   assert.equal(photoUrl("javascript:alert(1)"), undefined);
   assert.equal(photoUrl("//evil.test/photo.jpg"), undefined);
+  assert.equal(photoUrl("/gateway/../api/admins/me"), undefined);
+  assert.equal(photoUrl("/uploads/%2e%2e/secret"), undefined);
+  assert.equal(
+    photoUrl("https://user:password@external.test/photo.jpg"),
+    undefined,
+  );
 });

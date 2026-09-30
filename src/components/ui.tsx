@@ -183,11 +183,11 @@ export function ErrorMessage({
   return message ? (
     <Notice tone="error" className="error-box">
       {message}
-        {retry && (
-          <button type="button" onClick={retry} className="text-link block mt-2">
-            다시 시도
-          </button>
-        )}
+      {retry && (
+        <button type="button" onClick={retry} className="text-link block mt-2">
+          다시 시도
+        </button>
+      )}
     </Notice>
   ) : null;
 }
@@ -202,30 +202,49 @@ export function Notice({
   className?: string;
   onDismiss?: () => void;
 }) {
-  const Icon = tone === "success" ? CheckCircle2 : tone === "info" ? Info : AlertCircle;
+  const Icon =
+    tone === "success" ? CheckCircle2 : tone === "info" ? Info : AlertCircle;
   return (
-    <div className={`notice feedback ${tone} ${className}`} role={tone === "error" ? "alert" : "status"}>
+    <div
+      className={`notice feedback ${tone} ${className}`}
+      role={tone === "error" ? "alert" : "status"}
+    >
       <Icon size={18} aria-hidden="true" />
       <div className="feedback-content">{children}</div>
       {onDismiss && (
-        <button type="button" className="icon-button feedback-dismiss" aria-label="안내 닫기" onClick={onDismiss}>
+        <button
+          type="button"
+          className="icon-button feedback-dismiss"
+          aria-label="안내 닫기"
+          onClick={onDismiss}
+        >
           <X size={18} />
         </button>
       )}
     </div>
   );
 }
-export function CompletionState({ title, description, children }: {
+export function CompletionState({
+  title,
+  description,
+  children,
+}: {
   title: string;
   description: string;
   children: ReactNode;
 }) {
   const ref = useRef<HTMLHeadingElement>(null);
-  useEffect(() => { ref.current?.focus(); }, []);
+  useEffect(() => {
+    ref.current?.focus();
+  }, []);
   return (
     <section className="completion-state">
-      <span className="completion-icon"><CheckCircle2 size={32} aria-hidden="true" /></span>
-      <h1 ref={ref} tabIndex={-1}>{title}</h1>
+      <span className="completion-icon">
+        <CheckCircle2 size={32} aria-hidden="true" />
+      </span>
+      <h1 ref={ref} tabIndex={-1}>
+        {title}
+      </h1>
       <p>{description}</p>
       <div className="completion-actions">{children}</div>
     </section>
@@ -351,7 +370,9 @@ export function Sheet({
       }}
     >
       <div className="sheet-inner">
-        {variant === "sheet" && <span className="sheet-handle" aria-hidden="true" />}
+        {variant === "sheet" && (
+          <span className="sheet-handle" aria-hidden="true" />
+        )}
         <div className="sheet-header">
           <h2 id={titleId} tabIndex={-1}>
             {title}
@@ -381,7 +402,10 @@ export function PhotoPicker({
 }) {
   const [preview, setPreview] = useState("");
   const [error, setError] = useState("");
+  const [previewError, setPreviewError] = useState(false);
+  const input = useRef<HTMLInputElement>(null);
   useEffect(() => {
+    setPreviewError(false);
     if (!file) {
       setPreview("");
       return;
@@ -393,8 +417,17 @@ export function PhotoPicker({
   return (
     <div>
       <label className={`photo-picker ${file ? "has-photo" : ""}`}>
-        {preview ? (
-          <img src={preview} alt="선택한 사진 미리보기" />
+        {preview && !previewError ? (
+          <img
+            src={preview}
+            alt="선택한 사진 미리보기"
+            onError={() => setPreviewError(true)}
+          />
+        ) : previewError ? (
+          <span>
+            이 브라우저에서는 미리보기를 지원하지 않습니다. 선택한 사진은 등록할
+            수 있습니다.
+          </span>
         ) : (
           <>
             <ImagePlus size={38} />
@@ -403,6 +436,7 @@ export function PhotoPicker({
           </>
         )}
         <input
+          ref={input}
           className="sr-only"
           type="file"
           accept="image/jpeg,image/png,image/webp,image/heic"
@@ -411,11 +445,15 @@ export function PhotoPicker({
             const selected = e.target.files?.[0];
             if (!selected) return;
             if (
-              !selected.type.startsWith("image/") ||
+              !["image/jpeg", "image/png", "image/webp", "image/heic"].includes(
+                selected.type,
+              ) ||
+              !selected.size ||
               selected.size > 15 * 1024 * 1024
             ) {
-              setError("15MB 이하 이미지 파일을 선택해주세요.");
+              setError("15MB 이하의 JPG, PNG, WebP, HEIC 사진을 선택해주세요.");
               e.target.value = "";
+              onChange(null);
               return;
             }
             setError("");
@@ -428,7 +466,11 @@ export function PhotoPicker({
           <span className="truncate">{file.name}</span>
           <button
             className="text-link"
-            onClick={() => onChange(null)}
+            onClick={() => {
+              onChange(null);
+              setError("");
+              if (input.current) input.current.value = "";
+            }}
             type="button"
           >
             삭제

@@ -396,7 +396,11 @@ export function AdminFacilities() {
         </div>
         <ErrorMessage message={mutation.error} />
         {sync && (
-          <Notice tone="success" className="mb-4" onDismiss={() => setSync(undefined)}>
+          <Notice
+            tone="success"
+            className="mb-4"
+            onDismiss={() => setSync(undefined)}
+          >
             {sync.regionName} · {sync.scannedCount}건 조회
             <br />
             신규 {sync.createdCount}건 · 갱신 {sync.updatedCount}건
@@ -554,7 +558,12 @@ export function FacilityForm({ id }: { id?: string }) {
             publicNotice: f.get("publicNotice") || null,
           }),
         }),
-      (r) => router.replace(r?.id || id ? `/admin/facilities/${r?.id ?? id}` : "/admin/facilities"),
+      (r) =>
+        router.replace(
+          r?.id || id
+            ? `/admin/facilities/${r?.id ?? id}`
+            : "/admin/facilities",
+        ),
       id ? "시설 정보가 수정되었습니다." : "시설이 등록되었습니다.",
     );
   }
@@ -565,7 +574,14 @@ export function FacilityForm({ id }: { id?: string }) {
         back={id ? `/admin/facilities/${id}` : "/admin/facilities"}
       />
       <div className="page-content">
-        <DataState {...resource} retry={resource.reload}>
+        <DataState
+          loading={resource.loading || regions.loading}
+          error={resource.error || regions.error}
+          retry={() => {
+            resource.reload();
+            regions.reload();
+          }}
+        >
           <form
             onSubmit={submit}
             className="space-y-5"
@@ -646,7 +662,11 @@ export function FacilityForm({ id }: { id?: string }) {
             <ErrorMessage message={mutation.error} />
             <Button
               busy={mutation.busy}
-              disabled={!profile?.regionCode && profile?.role !== "SUPER_USER"}
+              disabled={
+                regions.loading ||
+                !!regions.error ||
+                (!profile?.regionCode && profile?.role !== "SUPER_USER")
+              }
             >
               시설 정보 저장
             </Button>

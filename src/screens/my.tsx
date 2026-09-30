@@ -29,6 +29,8 @@ import {
 } from "@/lib/types";
 import { dateLabel, label } from "@/lib/format";
 import { facilityHref } from "./facilities";
+import { isStoredFacility, readStoredArray } from "@/lib/preferences";
+import { isResourceId } from "@/lib/paths";
 export function MyScreen() {
   const { profile } = useSession();
   const router = useRouter();
@@ -42,18 +44,15 @@ export function MyScreen() {
   const [draftSports, setDraftSports] = useState<string[]>([]);
   const preference = useMutation();
   useEffect(() => {
-    try {
-      setFavorites(
-        JSON.parse(
-          localStorage.getItem(`checheFavorites:${profile?.userId}`) || "[]",
-        ),
-      );
-      setSports(
-        JSON.parse(
-          localStorage.getItem(`checheSports:${profile?.userId}`) || "[]",
-        ),
-      );
-    } catch {}
+    setFavorites(
+      readStoredArray(`checheFavorites:${profile?.userId}`, isStoredFacility),
+    );
+    setSports(
+      readStoredArray(
+        `checheSports:${profile?.userId}`,
+        (item): item is string => typeof item === "string",
+      ),
+    );
   }, [profile?.userId]);
   const rows = listOf(reservations.data);
   return (
@@ -114,7 +113,13 @@ export function MyScreen() {
         )}
         <SectionTitle>설정</SectionTitle>
         <div className="settings-list">
-          <button onClick={() => { setDraftSports(sports); preference.setError(""); setSheet("sports"); }}>
+          <button
+            onClick={() => {
+              setDraftSports(sports);
+              preference.setError("");
+              setSheet("sports");
+            }}
+          >
             <strong>운동 선호 설정</strong>
             <span>{sports.join(" · ") || "선택하기"} ›</span>
           </button>
@@ -157,11 +162,32 @@ export function MyScreen() {
           onClose={() => setSheet("")}
           variant={sheet === "account" ? "dialog" : "sheet"}
           busy={preference.busy}
-          footer={sheet === "sports" ? (
-            <Button busy={preference.busy} onClick={() => preference.run(async () => {
-              localStorage.setItem(`checheSports:${profile?.userId}`, JSON.stringify(draftSports));
-            }, () => { setSports(draftSports); setSheet(""); }, "운동 선호 설정이 저장되었습니다.")}>저장하기</Button>
-          ) : <Button onClick={() => setSheet("")}>확인</Button>}
+          footer={
+            sheet === "sports" ? (
+              <Button
+                busy={preference.busy}
+                onClick={() =>
+                  preference.run(
+                    async () => {
+                      localStorage.setItem(
+                        `checheSports:${profile?.userId}`,
+                        JSON.stringify(draftSports),
+                      );
+                    },
+                    () => {
+                      setSports(draftSports);
+                      setSheet("");
+                    },
+                    "운동 선호 설정이 저장되었습니다.",
+                  )
+                }
+              >
+                저장하기
+              </Button>
+            ) : (
+              <Button onClick={() => setSheet("")}>확인</Button>
+            )
+          }
         >
           {sheet === "sports" ? (
             <>
@@ -276,7 +302,9 @@ export function ReportsScreen() {
 }
 export function NewReportScreen() {
   const params = useSearchParams();
-  const facilityId = params.get("facilityId");
+  const facilityId = isResourceId(params.get("facilityId"))
+    ? params.get("facilityId")
+    : null;
   const resource = useApi<Facility>(
     facilityId ? `/api/user/facilities/${facilityId}` : null,
   );
@@ -311,7 +339,11 @@ export function NewReportScreen() {
             <Empty
               title="시설을 먼저 선택해주세요"
               description="시설 상세에서 개선 요청을 시작할 수 있습니다."
-            />
+            >
+              <Link href="/facilities" className="button secondary mt-4">
+                시설 선택하기
+              </Link>
+            </Empty>
           ) : (
             <form onSubmit={submit} className="space-y-5">
               <div className="notice blue font-semibold">

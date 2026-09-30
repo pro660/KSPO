@@ -15,12 +15,14 @@ import {
   Tabs,
 } from "@/components/ui";
 import { api, ApiError, jsonBody } from "@/lib/api";
+import { useSession } from "@/components/shell";
 import {
   canCancel,
   canReserve,
   dateLabel,
   endTime,
   localDate,
+  isCalendarDate,
   money,
 } from "@/lib/format";
 import { useApi, useMutation } from "@/lib/hooks";
@@ -47,11 +49,21 @@ export function CalendarSheet({
   const days = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
   const today = localDate();
   return (
-    <Sheet title="날짜 선택" onClose={onClose} footer={
-      <Button disabled={selected < today} onClick={() => { onSelect(selected); onClose(); }}>
-        이 날짜로 이용 시간 확인
-      </Button>
-    }>
+    <Sheet
+      title="날짜 선택"
+      onClose={onClose}
+      footer={
+        <Button
+          disabled={selected < today}
+          onClick={() => {
+            onSelect(selected);
+            onClose();
+          }}
+        >
+          이 날짜로 이용 시간 확인
+        </Button>
+      }
+    >
       <p className="muted text-xs">이용할 날짜를 선택해주세요.</p>
       <div className="calendar-month">
         <button
@@ -125,10 +137,11 @@ export function normalizeSlots(
     );
 }
 export function BookingScreen({ id }: { id: string }) {
+  const { profile } = useSession();
   const params = useSearchParams();
   const initial = params.get("date");
   const [date, setDate] = useState(
-    initial && /^\d{4}-\d{2}-\d{2}$/.test(initial) && initial >= localDate()
+    initial && isCalendarDate(initial) && initial >= localDate()
       ? initial
       : localDate(),
   );
@@ -137,7 +150,9 @@ export function BookingScreen({ id }: { id: string }) {
   const [count, setCount] = useState(1);
   const facility = useApi<Facility>(`/api/user/facilities/${id}`);
   const availability = useApi<Availability | TimeSlot[] | string[]>(
-    `/api/user/reservations/availability?facilityId=${id}&date=${date}`,
+    facility.data && canReserve(facility.data, profile?.regionCode ?? null)
+      ? `/api/user/reservations/availability?facilityId=${id}&date=${date}`
+      : null,
   );
   const mutation = useMutation();
   const router = useRouter();
@@ -164,7 +179,14 @@ export function BookingScreen({ id }: { id: string }) {
     (capacity == null || count <= capacity) &&
     new Date(`${date}T${slot.startTime}`) > new Date();
   async function reserve() {
-    if (!selectable) return;
+    if (
+      !selectable ||
+      availability.loading ||
+      !!availability.error ||
+      !facility.data ||
+      !canReserve(facility.data, profile?.regionCode ?? null)
+    )
+      return;
     await mutation.run(
       async () => {
         try {
@@ -194,10 +216,11 @@ export function BookingScreen({ id }: { id: string }) {
       <Header title="예약하기" back={`/facilities/${id}`} />
       <div className="page-content booking-page">
         <DataState {...facility} retry={facility.reload}>
-          {facility.data && !canReserve(facility.data) ? (
+          {facility.data &&
+          !canReserve(facility.data, profile?.regionCode ?? null) ? (
             <Empty
               title="현재 예약할 수 없는 시설입니다"
-              description="시설 운영 상태와 이용 안내를 확인해주세요."
+              description="내 지역의 운영 중인 시설만 예약할 수 있습니다. 시설 안내와 내 지역 설정을 확인해주세요."
             />
           ) : (
             facility.data && (
@@ -255,6 +278,7 @@ export function BookingScreen({ id }: { id: string }) {
                       {slots.map((s) => {
                         const disabled =
                           !s.available ||
+                          s.remainingCapacity === 0 ||
                           new Date(`${date}T${s.startTime}`) <= new Date();
                         return (
                           <button
@@ -513,7 +537,10 @@ export function ReservationDetail({ id }: { id: string }) {
                 <Button
                   variant="ghost"
                   className="mt-3"
-                  onClick={() => { mutation.setError(""); setConfirm(true); }}
+                  onClick={() => {
+                    mutation.setError("");
+                    setConfirm(true);
+                  }}
                 >
                   예약 취소
                 </Button>
@@ -523,37 +550,47 @@ export function ReservationDetail({ id }: { id: string }) {
         </DataState>
       </div>
       {confirm && (
-        <Sheet title="예약을 취소할까요?" variant="dialog" busy={mutation.busy} onClose={() => setConfirm(false)} footer={<>
-          <Button
-            variant="danger"
-            className="mt-6"
-            busy={mutation.busy}
-            onClick={() =>
-              mutation.run(
-                () =>
-                  api(`/api/user/reservations/${id}/cancel`, "user", {
-                    method: "PATCH",
-                  }),
-                () => {
-                  setConfirm(false);
-                  resource.reload();
-                },
-                "예약이 취소되었습니다.",
-              )
-            }
-          >
-            예약 취소하기
-          </Button>
-          <Button
-            variant="ghost"
-            className="mt-2"
-            disabled={mutation.busy}
-            onClick={() => setConfirm(false)}
-          >
-            예약 유지
-          </Button>
-        </>}>
-          <p className="muted text-sm">취소한 시간은 다른 이용자가 예약할 수 있습니다.</p>
+        <Sheet
+          title="예약을 취소할까요?"
+          variant="dialog"
+          busy={mutation.busy}
+          onClose={() => setConfirm(false)}
+          footer={
+            <>
+              <Button
+                variant="danger"
+                className="mt-6"
+                busy={mutation.busy}
+                onClick={() =>
+                  mutation.run(
+                    () =>
+                      api(`/api/user/reservations/${id}/cancel`, "user", {
+                        method: "PATCH",
+                      }),
+                    () => {
+                      setConfirm(false);
+                      resource.reload();
+                    },
+                    "예약이 취소되었습니다.",
+                  )
+                }
+              >
+                예약 취소하기
+              </Button>
+              <Button
+                variant="ghost"
+                className="mt-2"
+                disabled={mutation.busy}
+                onClick={() => setConfirm(false)}
+              >
+                예약 유지
+              </Button>
+            </>
+          }
+        >
+          <p className="muted text-sm">
+            취소한 시간은 다른 이용자가 예약할 수 있습니다.
+          </p>
           <ErrorMessage message={mutation.error} />
         </Sheet>
       )}

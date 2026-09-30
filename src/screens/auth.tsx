@@ -3,7 +3,14 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { DesignGraphic } from "@/components/design-assets";
-import { Button, CompletionState, ErrorMessage, Field, Notice, Sheet } from "@/components/ui";
+import {
+  Button,
+  CompletionState,
+  ErrorMessage,
+  Field,
+  Notice,
+  Sheet,
+} from "@/components/ui";
 import { api, DEMO_MODE, jsonBody, saveLogin } from "@/lib/api";
 import { useMutation } from "@/lib/hooks";
 import type { Account, LoginResponse } from "@/lib/types";
@@ -84,14 +91,21 @@ export function AuthScreen({
         </h1>
       )}
       {done ? (
-        <CompletionState title="회원가입이 완료되었습니다!" description="가입한 계정으로 로그인해 서비스를 시작하세요.">
+        <CompletionState
+          title="회원가입이 완료되었습니다!"
+          description="가입한 계정으로 로그인해 서비스를 시작하세요."
+        >
           <Link className="button primary" href={loginPath}>
             로그인하기
           </Link>
         </CompletionState>
       ) : (
         <form onSubmit={submit} className="auth-form">
-          {!register && params.get("reason") === "expired" && <Notice tone="warning" className="mb-4">로그인이 만료되었습니다. 다시 로그인해주세요.</Notice>}
+          {!register && params.get("reason") === "expired" && (
+            <Notice tone="warning" className="mb-4">
+              로그인이 만료되었습니다. 다시 로그인해주세요.
+            </Notice>
+          )}
           <label className="sr-only" htmlFor="username">
             아이디
           </label>
@@ -192,7 +206,12 @@ export function AuthScreen({
         </div>
       )}
       {help && (
-        <Sheet title="계정 찾기 안내" variant="dialog" onClose={() => setHelp(false)} footer={<Button onClick={() => setHelp(false)}>확인</Button>}>
+        <Sheet
+          title="계정 찾기 안내"
+          variant="dialog"
+          onClose={() => setHelp(false)}
+          footer={<Button onClick={() => setHelp(false)}>확인</Button>}
+        >
           <p className="muted leading-7">
             아이디·비밀번호 찾기는 현재 지원 준비 중입니다. 계정을 발급한 운영
             담당자에게 문의해주세요.

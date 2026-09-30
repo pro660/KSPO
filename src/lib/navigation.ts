@@ -77,7 +77,8 @@ export function getNavigation(path: string, role?: AdminRole) {
       "/admin/admins",
       "/admin/urgent",
     ].find((root) => within(path, root));
-    kind = role === "SUPER_USER" || superSection ? "super" : "manager";
+    kind =
+      role === "SUPER_USER" || (!role && superSection) ? "super" : "manager";
     activeHref =
       kind === "super"
         ? (superSection ?? "/admin")

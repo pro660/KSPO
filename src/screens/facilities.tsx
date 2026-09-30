@@ -20,6 +20,8 @@ import {
 import { api, jsonBody, photoUrl } from "@/lib/api";
 import { canReserve, localDate, money, safeUrl, dateLabel } from "@/lib/format";
 import { useApi } from "@/lib/hooks";
+import { isStoredFacility, readStoredArray } from "@/lib/preferences";
+import { useFeedback } from "@/components/feedback";
 import type {
   Facility,
   HomeResponse,
@@ -35,21 +37,23 @@ export function facilityHref(f: Facility) {
   )
     return `/facilities/${f.id}`;
   const key = encodeURIComponent(`${f.source}:${f.externalId ?? f.name}`);
-  if (typeof window !== "undefined")
-    sessionStorage.setItem(`checheExternal:${key}`, JSON.stringify(f));
+  if (typeof window !== "undefined") {
+    try {
+      sessionStorage.setItem(`checheExternal:${key}`, JSON.stringify(f));
+    } catch {}
+  }
   return `/facilities/external?key=${encodeURIComponent(key)}`;
 }
 export function Favorite({ facility }: { facility: Facility }) {
+  const notify = useFeedback();
   const { profile } = useSession();
   const key = `checheFavorites:${profile?.userId ?? "guest"}`;
   const [saved, setSaved] = useState(false);
   const identity = (f: Facility) =>
     `${f.source}:${f.id ?? f.externalId ?? f.name}`;
   useEffect(() => {
-    try {
-      const rows: Facility[] = JSON.parse(localStorage.getItem(key) || "[]");
-      setSaved(rows.some((f) => identity(f) === identity(facility)));
-    } catch {}
+    const rows = readStoredArray(key, isStoredFacility);
+    setSaved(rows.some((f) => identity(f) === identity(facility)));
   }, [key, facility]);
   return (
     <button
@@ -58,14 +62,19 @@ export function Favorite({ facility }: { facility: Facility }) {
       aria-label={saved ? "찜 해제" : "시설 찜하기"}
       aria-pressed={saved}
       onClick={() => {
-        let rows: Facility[] = [];
-        try {
-          rows = JSON.parse(localStorage.getItem(key) || "[]");
-        } catch {}
-        rows = rows.filter((f) => identity(f) !== identity(facility));
+        const rows = readStoredArray(key, isStoredFacility).filter(
+          (f) => identity(f) !== identity(facility),
+        );
         if (!saved) rows.push(facility);
-        localStorage.setItem(key, JSON.stringify(rows));
-        setSaved(!saved);
+        try {
+          localStorage.setItem(key, JSON.stringify(rows));
+          setSaved(!saved);
+        } catch {
+          notify(
+            "저장 공간을 사용할 수 없습니다. 브라우저 저장 설정을 확인해주세요.",
+            "error",
+          );
+        }
       }}
     >
       {saved ? (
@@ -258,6 +267,12 @@ export function SearchScreen({ chat = false }: { chat?: boolean }) {
   useEffect(() => {
     setQuery(initial);
     if (initial) void search(initial);
+    else {
+      setSubmitted("");
+      setResult(undefined);
+      setSearchError("");
+      setSearching(false);
+    }
     return () => controller.current?.abort();
   }, [initial]);
   const facilities = Array.isArray(result)
@@ -407,6 +422,7 @@ export function SearchScreen({ chat = false }: { chat?: boolean }) {
   );
 }
 export function FacilityDetail({ id }: { id: string }) {
+  const { profile } = useSession();
   const params = useSearchParams();
   const [external, setExternal] = useState<Facility>();
   const isExternal = id === "external";
@@ -423,17 +439,17 @@ export function FacilityDetail({ id }: { id: string }) {
   const [date, setDate] = useState(localDate());
   const [calendar, setCalendar] = useState(false);
   useEffect(() => {
+    setExternal(undefined);
     if (isExternal)
       try {
-        setExternal(
-          JSON.parse(
-            sessionStorage.getItem(`checheExternal:${params.get("key")}`) ||
-              "null",
-          ) ?? undefined,
+        const stored: unknown = JSON.parse(
+          sessionStorage.getItem(`checheExternal:${params.get("key")}`) ||
+            "null",
         );
+        if (isStoredFacility(stored)) setExternal(stored);
       } catch {}
   }, [isExternal, params]);
-  const f = external ?? resource.data;
+  const f = isExternal ? external : resource.data;
   const safetyRows = Array.isArray(safety.data)
     ? safety.data
     : safety.data
@@ -514,7 +530,9 @@ export function FacilityDetail({ id }: { id: string }) {
                 {
                   graphic: "calendar",
                   title: "예약",
-                  value: canReserve(f) ? "예약 가능" : "이용 안내",
+                  value: canReserve(f, profile?.regionCode ?? null)
+                    ? "예약 가능"
+                    : "이용 안내",
                 },
               ].map((i) => (
                 <div key={i.title}>
@@ -605,7 +623,7 @@ export function FacilityDetail({ id }: { id: string }) {
               </>
             )}
             <div className="detail-cta">
-              {canReserve(f) ? (
+              {canReserve(f, profile?.regionCode ?? null) ? (
                 <Link
                   className="button primary"
                   href={`/facilities/${f.id}/reserve?date=${date}`}
@@ -616,7 +634,9 @@ export function FacilityDetail({ id }: { id: string }) {
                 <p className="notice blue">
                   {isExternal
                     ? "공공 API 시설은 현재 검색·이용 안내를 지원합니다."
-                    : "현재 운영 상태에서는 예약할 수 없습니다."}
+                    : f.regionCode !== profile?.regionCode
+                      ? "내 지역으로 설정된 지역의 시설만 예약할 수 있습니다."
+                      : "현재 운영 상태에서는 예약할 수 없습니다."}
                 </p>
               )}
             </div>
