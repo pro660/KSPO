@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, type ReactNode } from "react";
 import { AUTH_GUARD_DISABLED, DEMO_MODE, token } from "@/lib/api";
 import { useApi } from "@/lib/hooks";
 import { accountForPath, getNavigation } from "@/lib/navigation";
@@ -15,23 +15,6 @@ const SessionContext = createContext<{
   updateProfile: (profile: Profile) => void;
 }>({ profile: undefined, account: "user", refresh: () => {}, updateProfile: () => {} });
 export const useSession = () => useContext(SessionContext);
-function StatusClock() {
-  const [time, setTime] = useState("");
-  useEffect(() => {
-    const updateTime = () => {
-      const now = new Date();
-      setTime(`${now.getHours()}:${String(now.getMinutes()).padStart(2, "0")}`);
-    };
-    updateTime();
-    const interval = window.setInterval(updateTime, 1000);
-    document.addEventListener("visibilitychange", updateTime);
-    return () => {
-      window.clearInterval(interval);
-      document.removeEventListener("visibilitychange", updateTime);
-    };
-  }, []);
-  return <span>{time || "\u00a0"}</span>;
-}
 export function AppShell({ children }: { children: ReactNode }) {
   const path = usePathname();
   const router = useRouter();
@@ -73,11 +56,6 @@ export function AppShell({ children }: { children: ReactNode }) {
       value={{ profile: profile.data, account, refresh: profile.reload, updateProfile: profile.setData }}
     >
       <div className="app-shell">
-        <div className="phone-status" aria-hidden="true">
-          <StatusClock />
-          <i />
-          <span>● 5G 100%</span>
-        </div>
         {(DEMO_MODE || AUTH_GUARD_DISABLED) && (
           <Link href="/screens" className="demo-tag">
             {DEMO_MODE ? "샘플 미리보기" : "가드 임시 해제"}

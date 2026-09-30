@@ -130,37 +130,12 @@ img {
 .app-shell {
   position: relative;
   max-width: 402px;
-  min-height: 874px;
+  min-height: 824px;
   margin: 24px auto;
   background: white;
   box-shadow: 0 10px 50px #1e3a5f09;
   isolation: isolate;
   overflow-x: clip;
-}
-.phone-status {
-  height: 50px;
-  padding: 12px 20px 0;
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  font-size: 10px;
-  position: relative;
-  color: #111827;
-  line-height: 22px;
-}
-.phone-status > span:first-child {
-  font-size: 12px;
-  font-weight: 600;
-}
-.phone-status i {
-  position: absolute;
-  width: 124px;
-  height: 28px;
-  top: 10px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: #000;
-  border-radius: 20px;
 }
 .app-shell main {
   min-height: 824px;
@@ -535,7 +510,7 @@ img {
 .demo-tag {
   position: absolute;
   right: 10px;
-  top: 40px;
+  top: 8px;
   font-size: 8px;
   color: #64748b;
   z-index: 15;
@@ -2094,10 +2069,10 @@ img {
     box-shadow: none;
   }
   .app-shell main {
-    min-height: calc(100dvh - 50px);
+    min-height: 100dvh;
   }
   .welcome {
-    min-height: calc(100dvh - 50px);
+    min-height: 100dvh;
     padding-bottom: max(18px, env(safe-area-inset-bottom));
   }
   .welcome-logo {

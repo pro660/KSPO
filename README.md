@@ -39,7 +39,9 @@ npm run dev
 
 선택·설정은 하단 시트, 짧은 안내·예약 취소는 중앙 팝업으로 표시합니다. 제목·닫기·하단 버튼은 유지하고 긴 본문만 스크롤됩니다. 처리 중에는 중복 제출과 닫기를 막습니다. 회원가입 완료는 다음 행동 하나만 제공하며, 예약·등록·수정·설정 저장은 6초간 표시되는 닫기 가능한 완료 안내를 사용합니다. 오류는 작업 위치에 유지하고 중복 표시하지 않습니다. 운동 선호 설정은 저장 전 닫으면 기존 선택을 유지합니다.
 
-왼쪽 상단 상태 표시줄은 사용자 기기의 현지 시각을 24시간제 `H:mm`으로 표시하며, 매초 및 탭으로 돌아올 때 갱신합니다.
+전역 기본 스타일은 `@layer base`, 화면 컴포넌트 스타일은 `@layer components`에 둡니다. `mt-*`, `gap-*`, `space-y-*` 유틸리티가 정상 적용되도록 새 전역 스타일도 해당 레이어 안에 추가하세요. 유사 사례 카드 사이와 하단 안내 사이에는 12px 간격을 사용하며, 폼과 상세 정보의 기존 16~20px 간격도 유지합니다. [Tailwind CSS 레이어 가이드](https://tailwindcss.com/docs/adding-custom-styles#adding-component-classes).
+
+화면 상단에는 휴대폰을 흉내 낸 시계·노치·통신·배터리 표시를 넣지 않습니다. 페이지 제목과 실제 서비스 콘텐츠부터 표시하며, 모바일 화면 높이는 가상 상태 표시줄 없이 전체 뷰포트를 기준으로 계산합니다.
 
 ## API 연동
 
@@ -59,6 +61,13 @@ npm run dev
 - `ERR_NGROK_6024`는 ngrok 안내 페이지, `ERR_NGROK_3004`는 불완전한 HTTP 응답(대상 포트와 HTTP/HTTPS 설정 확인), `ERR_NGROK_3200`은 오프라인 터널입니다. 터널이 꺼졌으면 프론트엔드 수정만으로 복구되지 않습니다. 백엔드 머신에서 Gateway와 ngrok를 실행하고 현재 터널 주소가 환경변수와 같은지 확인하세요.
 - `NEXT_PUBLIC_CHECHE_DEMO_MODE=true`에서는 실제 백엔드를 호출하지 않습니다. 정상 연동은 demo/guard 설정을 모두 false로 두고 검증하세요.
 - 상대 사진 경로는 `/gateway`를 통해 요청합니다. 외부 절대 이미지 URL은 원래 호스트를 사용하므로 해당 호스트가 직접 접근 가능해야 합니다.
+
+### 사진 등록과 조회 오류 구분
+
+- 사진 등록은 `POST /gateway/api/inspections`(multipart)이며, 응답의 `photoUrl`을 불러오는 `GET /gateway/inspection-photos/...`는 별도 요청입니다. GET의 404만으로 등록 실패라고 판단하지 않습니다.
+- 점검·개선 요청 사진은 `RemotePhoto`에서 동일 출처 Gateway에 해당 계정의 JWT를 보내 조회하고 Blob URL로 표시합니다. 외부 이미지 호스트에는 JWT를 보내지 않습니다. 이미 `/gateway/`로 시작하는 사진 경로에는 접두사를 중복 추가하지 않습니다.
+- 로딩 실패는 깨진 이미지 대신 오류 안내와 재시도 버튼으로 표시합니다. 404를 성공 이미지로 대체하거나 파일 경로를 추측해 우회하지 않습니다.
+- `X-Cheche-Request-Id`가 있고 오류 JSON의 `path`가 `/inspection-photos/...`라면 프론트엔드 중계 이후 upstream에서 반환된 오류입니다. 파일 제공 경로·파일 존재 여부는 프론트엔드만으로 확인 또는 복구할 수 없습니다.
 
 참고: [Next.js 16.3.7 서버 중계](https://nextjs.org/docs/app/guides/backend-for-frontend), [ngrok API 안내 헤더](https://ngrok.com/docs/pricing-limits/free-plan-limits), [ngrok 3004](https://ngrok.com/docs/errors/err_ngrok_3004), [ngrok 3200](https://ngrok.com/docs/errors/err_ngrok_3200).
 
@@ -89,6 +98,8 @@ npm run build
 화면 검증용 로컬 가짜 서버는 `node tests/fixtures/gateway.mjs`로 실행합니다. 별도 PowerShell 터미널에서 `$env:CHECHE_API_BASE_URL='http://127.0.0.1:9091'; node node_modules/next/dist/bin/next start --hostname 127.0.0.1 --port 3001`로 빌드된 앱을 실행한 뒤 `http://127.0.0.1:3001`에서 검증합니다. 이 서버는 실제 계정을 사용하지 않으며 재시작하면 초기화됩니다. 예약 취소 첫 시도는 오류, 다음 시도는 성공하도록 구성해 오류·완료 안내를 점검할 수 있습니다. 실제 연동 터미널의 환경변수는 변경하지 마세요.
 
 로컬 화면 검증 서버에서 `first_user`로 로그인하면 지역이 없는 신규 사용자 흐름을 확인할 수 있습니다(가짜 비밀번호 사용). 지역을 저장하면 다음 프로필 조회에 반영됩니다.
+
+관리자 로그인 후 `/admin/inspections/1`은 인증 헤더가 있어야 표시되는 테스트 사진과 유사 사례 카드 간격을, `/admin/inspections/2`는 사진 404 안내와 재시도를 검증합니다. 두 화면의 데이터는 로컬 fixture 전용입니다.
 
 Figma 원본 SVG는 `public/figma`에 저장되어 임시 원격 URL에 의존하지 않습니다. 글꼴은 `@fontsource-variable/42dot-sans`를 로컬 번들링합니다.
 
