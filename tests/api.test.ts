@@ -168,6 +168,8 @@ test("API paths cannot target another origin; relative photos use Gateway", asyn
   }
   assert.equal(photoUrl("/uploads/photo.jpg"), "/gateway/uploads/photo.jpg");
   assert.equal(photoUrl("uploads/photo.jpg"), "/gateway/uploads/photo.jpg");
+  assert.equal(photoUrl("/gateway/inspection-photos/photo.png"), "/gateway/inspection-photos/photo.png");
+  assert.equal(photoUrl("/inspection-photos/점검 사진.png"), "/gateway/inspection-photos/점검 사진.png");
   assert.equal(photoUrl("https://images.example.test/photo.jpg"), "https://images.example.test/photo.jpg");
   assert.equal(photoUrl("javascript:alert(1)"), undefined);
   assert.equal(photoUrl("//evil.test/photo.jpg"), undefined);

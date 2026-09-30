@@ -116,7 +116,8 @@ export function photoUrl(path?: string | null) {
   try {
     if (path.startsWith("//") || path.includes("\\")) return undefined;
     if (!/^[a-z][a-z\d+.-]*:/i.test(path)) {
-      return `${API_BASE_URL}/${path.replace(/^\/+/, "")}`;
+      const relative = `/${path.replace(/^\/+/, "")}`;
+      return relative.startsWith(`${API_BASE_URL}/`) ? relative : `${API_BASE_URL}${relative}`;
     }
     const u = new URL(path);
     if (!["http:", "https:"].includes(u.protocol)) return undefined;

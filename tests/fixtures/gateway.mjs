@@ -7,9 +7,16 @@ let reservation = { id: 1, facilityId: 1, facilityName: facility.name, reservati
 let cancelAttempts = 0;
 const districts = ["종로구", "중구", "용산구", "성동구", "광진구", "동대문구", "중랑구", "성북구", "강북구", "도봉구", "노원구", "은평구", "서대문구", "마포구", "양천구", "강서구", "구로구", "금천구", "영등포구", "동작구", "관악구", "서초구", "강남구", "송파구", "강동구"];
 const regions = districts.map((name, i) => ({ regionCode: name === "송파구" ? "11710" : String(11100 + i), regionName: `서울특별시 ${name}` }));
+const inspection = { id: 1, facilityId: 1, facilityName: facility.name, regionCode: profile.regionCode, regionName: profile.regionName, reporterUserId: 20, photoUrl: "/inspection-photos/fixture.svg", locationDescription: "체육관 서측 벽면", defectType: "CRACK", severity: "HIGH", confidence: 0.91, checklist: ["손상 범위를 확인해주세요.", "현장 상태와 사진을 비교해주세요."], similarCases: ["동일 시설의 최근 기타 손상 기록 확인", "동일 지역·동일 결함 유형의 조치 완료 사례 비교"], reportSummary: "균열 의심 부위의 현장 확인이 필요합니다.", actionStatus: "REPORTED", actionNote: null, createdAt: "2026-09-30T14:00:00" };
 createServer(async (req, res) => {
   const path = new URL(req.url, "http://127.0.0.1").pathname;
   const reply = (body, status = 200) => { res.writeHead(status, { "Content-Type": "application/json" }); res.end(JSON.stringify(body)); };
+  if (path.startsWith("/inspection-photos/")) {
+    if (req.headers.authorization !== "Bearer local-fixture-token") return reply({ message: "Photo authentication required" }, 401);
+    if (path !== "/inspection-photos/fixture.svg") return reply({ message: "Photo not found" }, 404);
+    res.writeHead(200, { "Content-Type": "image/svg+xml" });
+    return res.end('<svg xmlns="http://www.w3.org/2000/svg" width="640" height="400"><rect width="640" height="400" fill="#eaf3ff"/><text x="320" y="200" text-anchor="middle" fill="#1677ef" font-size="24">Authenticated photo fixture</text></svg>');
+  }
   const chunks = [];
   for await (const chunk of req) chunks.push(chunk); // Test-only payloads; never log credentials.
   if (path.endsWith("/register")) return reply({});
@@ -42,5 +49,6 @@ createServer(async (req, res) => {
   if (path.endsWith("/usage-guide")) return reply({ description: "화면 검증용 이용 안내" });
   if (path === "/api/facilities") return reply([facility]);
   if (path === "/api/inspections/dashboard") return reply({ totalInspections: 0, unresolvedInspections: 0, resolvedInspections: 0 });
+  if (path === "/api/inspections" || path === "/api/inspections/open" || path === "/api/inspections/facilities/1/history") return reply([inspection, { ...inspection, id: 2, photoUrl: "/inspection-photos/missing.png" }]);
   return reply([]);
 }).listen(9091, "127.0.0.1", () => console.log("UI fixture ready on http://127.0.0.1:9091 (local mock only)"));

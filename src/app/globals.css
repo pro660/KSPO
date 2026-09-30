@@ -3,6 +3,8 @@
   --color-primary: #1677ef;
   --font-sans: "42dot Sans Variable", Arial, sans-serif;
 }
+/* Keep resets below components and utilities so spacing utilities can apply. */
+@layer base {
 :root {
   --blue: #1677ef;
   --blue-soft: #eaf3ff;
@@ -91,6 +93,9 @@ svg {
 img {
   max-width: 100%;
 }
+}
+
+@layer components {
 .muted {
   color: var(--muted);
 }
@@ -1859,17 +1864,20 @@ img {
   display: block;
 }
 .inspection-image-placeholder {
-  height: 226px;
+  min-height: 226px;
+  padding: 20px;
   border-radius: 14px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: #b8b8b8;
-  color: white;
+  background: #f1f5f9;
+  color: var(--muted);
   gap: 12px;
   font-size: 13px;
+  text-align: center;
 }
+.inspection-image-placeholder p { font-size: 12px; line-height: 1.6; }
 .analysis-result {
   border: 1px solid #e2e8f0;
   border-radius: 14px;
@@ -1941,7 +1949,7 @@ img {
 }
 .similar-cases {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 100px), 1fr));
   gap: 12px;
 }
 .similar-cases > div {
@@ -2203,4 +2211,5 @@ img {
   .welcome-logo {
     top: calc(40dvh - 68px);
   }
+}
 }

@@ -117,3 +117,19 @@ test("offline ngrok tunnel is reported as a connection error, not a missing API 
   assert.equal(response.headers.get("x-content-type-options"), "nosniff");
   assert.equal(response.headers.get("content-security-policy"), "default-src 'none'; sandbox");
 });
+
+test("inspection photo filenames and authenticated image responses survive Gateway unchanged", async () => {
+  process.env.CHECHE_API_BASE_URL = "https://backend.example.test";
+  const filename = "0312c97f-5671-49dd-8dfd-2085b25b2731-점검 사진_2026-09-30_140255.png";
+  globalThis.fetch = async (url, options) => {
+    assert.equal(String(url), `https://backend.example.test/inspection-photos/${encodeURIComponent(filename)}`);
+    assert.equal(new Headers(options?.headers).get("Authorization"), "Bearer admin-fixture");
+    return new Response(new Uint8Array([4, 5, 6]), { headers: { "Content-Type": "image/png" } });
+  };
+  const response = await forwardGateway(new Request(`http://localhost/gateway/inspection-photos/${encodeURIComponent(filename)}`, {
+    headers: { Authorization: "Bearer admin-fixture" },
+  }), ["inspection-photos", filename]);
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("content-type"), "image/png");
+  assert.deepEqual(new Uint8Array(await response.arrayBuffer()), new Uint8Array([4, 5, 6]));
+});

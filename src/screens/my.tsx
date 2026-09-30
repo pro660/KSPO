@@ -17,7 +17,8 @@ import {
   Sheet,
   Stats,
 } from "@/components/ui";
-import { api, clearLogin, photoUrl } from "@/lib/api";
+import { api, clearLogin } from "@/lib/api";
+import { RemotePhoto } from "@/components/remote-photo";
 import { useApi, useMutation } from "@/lib/hooks";
 import {
   listOf,
@@ -387,9 +388,10 @@ export function ReportDetail({ id }: { id: string }) {
                 </p>
               </div>
               {resource.data.photoUrl && (
-                <img
-                  className="inspection-photo mt-5"
-                  src={photoUrl(resource.data.photoUrl)}
+                <RemotePhoto
+                  className="mt-5"
+                  path={resource.data.photoUrl}
+                  account="user"
                   alt="시설 개선 요청 사진"
                 />
               )}

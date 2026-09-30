@@ -338,7 +338,7 @@ export function SearchScreen({ chat = false }: { chat?: boolean }) {
         )}
         <ErrorMessage message={searchError} />
         {searching && (
-          <p className="notice blue" role="status">
+          <p className="notice blue mt-3" role="status">
             조건에 맞는 시설을 찾고 있어요…
           </p>
         )}

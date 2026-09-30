@@ -2,7 +2,8 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Check, Download, ImageIcon, Search } from "lucide-react";
+import { Check, Download, Search } from "lucide-react";
+import { RemotePhoto } from "@/components/remote-photo";
 import {
   Badge,
   Button,
@@ -16,7 +17,7 @@ import {
   Stats,
   Tabs,
 } from "@/components/ui";
-import { api, DEMO_MODE, jsonBody, photoUrl } from "@/lib/api";
+import { api, jsonBody } from "@/lib/api";
 import { dateLabel, label } from "@/lib/format";
 import { useApi, useMutation } from "@/lib/hooks";
 import {
@@ -153,22 +154,7 @@ function useInspection(id: string) {
   };
 }
 function InspectionPhoto({ inspection: i }: { inspection: Inspection }) {
-  const source =
-    DEMO_MODE && i.photoUrl.startsWith("data:image/")
-      ? i.photoUrl
-      : photoUrl(i.photoUrl);
-  return source ? (
-    <img
-      className="inspection-photo"
-      src={source}
-      alt={`${i.facilityName} 점검 사진`}
-    />
-  ) : (
-    <div className="inspection-image-placeholder">
-      <ImageIcon size={30} />
-      <span>등록된 사진이 없습니다.</span>
-    </div>
-  );
+  return <RemotePhoto path={i.photoUrl} account="admin" alt={`${i.facilityName} 점검 사진`} />;
 }
 export function InspectionDetail({ id }: { id: string }) {
   const resource = useInspection(id);
@@ -236,7 +222,7 @@ export function InspectionDetail({ id }: { id: string }) {
               ) : (
                 <p className="notice">제공된 유사 사례가 없습니다.</p>
               )}
-              <p className="notice blue mt-5">
+              <p className="notice blue mt-3">
                 AI 분석은 참고 정보이며 최종 판정은 담당자가 확인합니다.
               </p>
               <div className="flex gap-3 mt-5">
