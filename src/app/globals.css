@@ -591,6 +591,9 @@
   .auth-screen .entry-logo {
     transform: translate(27px, 30px);
   }
+  .welcome .entry-logo {
+    transform: translate(27px, 110px);
+  }
   .entry-logo .design-graphic {
     display: block;
   }
