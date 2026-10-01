@@ -2,6 +2,12 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useSearchFilters } from "@/lib/use-search-filters";
+import {
+  inspectionFilters,
+  urgentFilters,
+  historyFilters,
+} from "@/lib/search-filters";
 import { Check, Download, Search } from "lucide-react";
 import { RemotePhoto } from "@/components/remote-photo";
 import {
@@ -173,7 +179,7 @@ export function InspectionDetail({ id }: { id: string }) {
     <>
       <Header title="AI 결함 분석" back="/admin/inspections" />
       <div className="page-content">
-        <DataState {...resource} retry={resource.reload}>
+        <DataState {...resource} retry={resource.reload} skeleton="detail">
           {!i ? (
             <Empty
               title="점검 정보를 찾을 수 없습니다"
@@ -296,7 +302,7 @@ export function InspectionConfirm({ id }: { id: string }) {
     <>
       <Header title="결함 확정" back={`/admin/inspections/${id}`} />
       <div className="page-content">
-        <DataState {...resource} retry={resource.reload}>
+        <DataState {...resource} retry={resource.reload} skeleton="detail">
           {i ? (
             <form onSubmit={submit} className="space-y-5">
               <h2 className="font-semibold text-lg">최종 결함 정보</h2>
@@ -403,7 +409,7 @@ export function InspectionReport({ id }: { id: string }) {
     <>
       <Header title="점검 보고서" back={`/admin/inspections/${id}`} />
       <div className="page-content report-page">
-        <DataState {...resource} retry={resource.reload}>
+        <DataState {...resource} retry={resource.reload} skeleton="detail">
           {i ? (
             <>
               <SectionTitle>기본 정보</SectionTitle>
@@ -481,9 +487,10 @@ export function InspectionsList({
     actions ? "/api/inspections" : null,
     "admin",
   );
-  const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState("all");
-  const [sort, setSort] = useState("recent");
+  const {
+    filters: { q: query, filter, sort },
+    setFilter,
+  } = useSearchFilters(urgent ? urgentFilters : inspectionFilters);
   const source =
     actions && filter === "RESOLVED" ? listOf(all.data) : listOf(resource.data);
   const rows = source
@@ -517,6 +524,7 @@ export function InspectionsList({
           <>
             <SectionTitle>조치 진행 현황</SectionTitle>
             <Stats
+              loading={all.loading}
               items={[
                 {
                   label: "미조치",
@@ -571,12 +579,12 @@ export function InspectionsList({
             placeholder="시설명 또는 점검 내용 검색"
             aria-label="점검 검색"
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => setFilter("q", e.target.value)}
           />
         </div>
         <Tabs
           value={filter}
-          onChange={setFilter}
+          onChange={(value) => setFilter("filter", value)}
           items={
             urgent
               ? [
@@ -599,7 +607,7 @@ export function InspectionsList({
               className="sort-select"
               aria-label="점검 정렬"
               value={sort}
-              onChange={(e) => setSort(e.target.value)}
+              onChange={(e) => setFilter("sort", e.target.value)}
             >
               <option value="recent">최신순</option>
               <option value="old">오래된 순</option>
@@ -650,18 +658,21 @@ export function InspectionsList({
   );
 }
 export function HistoryScreen() {
-  const params = useSearchParams();
   const facilities = useApi<ListResponse<Facility>>("/api/facilities", "admin");
-  const [selected, setSelected] = useState(params.get("facilityId") ?? "");
-  const [filter, setFilter] = useState("all");
+  const {
+    filters: { facilityId: selected, filter },
+    setFilter,
+    ready,
+  } = useSearchFilters(historyFilters);
   useEffect(() => {
     if (
+      ready &&
       facilities.data &&
       !listOf(facilities.data).some((f) => String(f.id) === selected) &&
       listOf(facilities.data)[0]
     )
-      setSelected(String(listOf(facilities.data)[0].id));
-  }, [facilities.data, selected]);
+      setFilter("facilityId", String(listOf(facilities.data)[0].id));
+  }, [facilities.data, selected, ready]);
   const history = useApi<ListResponse<Inspection>>(
     isResourceId(selected)
       ? `/api/inspections/facilities/${selected}/history`
@@ -686,7 +697,7 @@ export function HistoryScreen() {
         <Field label="점검 시설">
           <select
             value={selected}
-            onChange={(e) => setSelected(e.target.value)}
+            onChange={(e) => setFilter("facilityId", e.target.value)}
           >
             <option value="">시설을 선택하세요</option>
             {listOf(facilities.data).map((f) => (
@@ -697,6 +708,7 @@ export function HistoryScreen() {
           </select>
         </Field>
         <Stats
+          loading={facilities.loading || history.loading}
           items={[
             {
               label: "점검",
@@ -722,7 +734,7 @@ export function HistoryScreen() {
         <div className="mt-5">
           <Tabs
             value={filter}
-            onChange={setFilter}
+            onChange={(value) => setFilter("filter", value)}
             items={[
               { label: "전체", value: "all" },
               { label: "미조치", value: "open" },

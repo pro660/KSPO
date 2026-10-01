@@ -73,6 +73,7 @@ export function MyScreen() {
         </div>
         <SectionTitle>나의 활동</SectionTitle>
         <Stats
+          loading={reservations.loading || reports.loading}
           items={[
             {
               label: "예약",

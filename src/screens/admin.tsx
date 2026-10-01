@@ -2,6 +2,9 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { useSearchFilters } from "@/lib/use-search-filters";
+import { facilityFilters } from "@/lib/search-filters";
+import { Skeleton } from "@/components/skeleton";
 import {
   Camera,
   Wrench,
@@ -127,7 +130,7 @@ function RegionalDashboard() {
         >
           오늘의 안전 현황
         </SectionTitle>
-        <DataState {...dashboard} retry={dashboard.reload}>
+        <DataState {...dashboard} retry={dashboard.reload} skeleton="stats">
           <Stats
             items={[
               {
@@ -243,6 +246,12 @@ export function SuperDashboard() {
           }}
         />
         <Stats
+          loading={
+            dashboard.loading ||
+            facilities.loading ||
+            admins.loading ||
+            inspections.loading
+          }
           items={[
             {
               label: "지역 관리자",
@@ -273,6 +282,7 @@ export function SuperDashboard() {
           ]}
         />
         <SectionTitle href="/admin/regions">지역별 안전 현황</SectionTitle>
+        {(facilities.loading || inspections.loading) && <Skeleton />}
         {districts.map((region) => {
           const selected = rows.filter((i) => i.regionName === region);
           const done = selected.filter(
@@ -302,6 +312,7 @@ export function SuperDashboard() {
         <SectionTitle href="/admin/admins" more="관리자 관리">
           지역 관리자 현황
         </SectionTitle>
+        {admins.loading && <Skeleton />}
         {listOf(admins.data)
           .slice(0, 3)
           .map((a) => (
@@ -323,6 +334,7 @@ export function SuperDashboard() {
         >
           긴급 미조치
         </SectionTitle>
+        {inspections.loading && <Skeleton />}
         {urgent.slice(0, 2).map((i) => (
           <InspectionRow key={i.id} inspection={i} />
         ))}
@@ -356,8 +368,10 @@ function AdminLogout() {
 }
 export function AdminFacilities() {
   const resource = useApi<ListResponse<Facility>>("/api/facilities", "admin");
-  const [query, setQuery] = useState("");
-  const [status, setStatus] = useState("");
+  const {
+    filters: { q: query, status },
+    setFilter,
+  } = useSearchFilters(facilityFilters);
   const [sync, setSync] = useState<SyncResult>();
   const mutation = useMutation();
   const rows = listOf(resource.data).filter(
@@ -411,7 +425,7 @@ export function AdminFacilities() {
           <input
             aria-label="시설 검색"
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => setFilter("q", e.target.value)}
             placeholder="시설명 또는 주소 검색"
           />
         </div>
@@ -419,7 +433,7 @@ export function AdminFacilities() {
           className="mt-3"
           aria-label="운영 상태 필터"
           value={status}
-          onChange={(e) => setStatus(e.target.value)}
+          onChange={(e) => setFilter("status", e.target.value)}
         >
           <option value="">전체 운영 상태</option>
           {["OPERATING", "UNDER_INSPECTION", "CLOSED"].map((s) => (

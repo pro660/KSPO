@@ -2,6 +2,8 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useSearchFilters } from "@/lib/use-search-filters";
+import { reservationFilters } from "@/lib/search-filters";
 import { ChevronLeft, ChevronRight, Check, Minus, Plus } from "lucide-react";
 import {
   Badge,
@@ -387,7 +389,10 @@ export function BookingScreen({ id }: { id: string }) {
 }
 export function ReservationsScreen() {
   const resource = useApi<ListResponse<Reservation>>("/api/user/reservations");
-  const [tab, setTab] = useState("upcoming");
+  const {
+    filters: { tab },
+    setFilter,
+  } = useSearchFilters(reservationFilters);
   const rows = listOf(resource.data);
   const upcoming = rows.filter(
     (r) =>
@@ -412,7 +417,7 @@ export function ReservationsScreen() {
         <p className="muted text-xs mb-5">시설 예약과 이용 내역을 확인하세요</p>
         <Tabs
           value={tab}
-          onChange={setTab}
+          onChange={(value) => setFilter("tab", value)}
           items={[
             {
               value: "upcoming",

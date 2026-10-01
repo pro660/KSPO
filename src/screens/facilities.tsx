@@ -20,6 +20,9 @@ import {
 import { api, jsonBody, photoUrl } from "@/lib/api";
 import { canReserve, localDate, money, safeUrl, dateLabel } from "@/lib/format";
 import { useApi } from "@/lib/hooks";
+import { useSearchFilters } from "@/lib/use-search-filters";
+import { searchFilters } from "@/lib/search-filters";
+import { Skeleton } from "@/components/skeleton";
 import { isStoredFacility, readStoredArray } from "@/lib/preferences";
 import { useFeedback } from "@/components/feedback";
 import type {
@@ -199,7 +202,7 @@ export function HomeScreen() {
         ))}
       </div>
       <h2 className="recommend-title">내 주변 추천 시설</h2>
-      <DataState {...resource} retry={resource.reload}>
+      <DataState {...resource} retry={resource.reload} skeleton="facility">
         {facilities.length ? (
           facilities
             .slice(0, 3)
@@ -229,8 +232,11 @@ export function HomeScreen() {
   );
 }
 export function SearchScreen({ chat = false }: { chat?: boolean }) {
-  const params = useSearchParams();
-  const initial = params.get("q") ?? "";
+  const {
+    filters: { q: initial },
+    setFilter,
+    ready,
+  } = useSearchFilters(searchFilters);
   const [query, setQuery] = useState(initial);
   const [submitted, setSubmitted] = useState("");
   const [result, setResult] = useState<SearchResponse | Facility[]>();
@@ -265,6 +271,7 @@ export function SearchScreen({ chat = false }: { chat?: boolean }) {
     }
   }
   useEffect(() => {
+    if (!ready) return;
     setQuery(initial);
     if (initial) void search(initial);
     else {
@@ -274,7 +281,14 @@ export function SearchScreen({ chat = false }: { chat?: boolean }) {
       setSearching(false);
     }
     return () => controller.current?.abort();
-  }, [initial]);
+  }, [initial, ready]);
+  function submitSearch(text: string) {
+    const value = text.trim();
+    if (!value) return;
+    setQuery(value);
+    if (value === initial) void search(value);
+    else setFilter("q", value);
+  }
   const facilities = Array.isArray(result)
     ? result
     : (result?.facilities ?? result?.results ?? []);
@@ -306,7 +320,7 @@ export function SearchScreen({ chat = false }: { chat?: boolean }) {
           className={chat ? "chat-input" : "search-input"}
           onSubmit={(e) => {
             e.preventDefault();
-            void search(query);
+            submitSearch(query);
           }}
         >
           {!chat && <Search size={17} />}
@@ -320,8 +334,9 @@ export function SearchScreen({ chat = false }: { chat?: boolean }) {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             required
+            maxLength={1000}
           />
-          <button aria-label="검색하기" disabled={searching}>
+          <button aria-label="검색하기" disabled={searching || !ready}>
             <DesignGraphic name="send" />
           </button>
         </form>
@@ -341,8 +356,7 @@ export function SearchScreen({ chat = false }: { chat?: boolean }) {
                 <button
                   key={t}
                   onClick={() => {
-                    setQuery(t);
-                    void search(t);
+                    submitSearch(t);
                   }}
                 >
                   {t}
@@ -351,11 +365,15 @@ export function SearchScreen({ chat = false }: { chat?: boolean }) {
             </div>
           </>
         )}
-        <ErrorMessage message={searchError} />
-        {searching && (
-          <p className="notice blue mt-3" role="status">
-            조건에 맞는 시설을 찾고 있어요…
-          </p>
+        <ErrorMessage
+          message={searchError}
+          retry={() => void search(initial)}
+        />
+        {(!ready || searching) && (
+          <Skeleton
+            variant="facility"
+            label="조건에 맞는 시설을 찾고 있어요…"
+          />
         )}
         {result && (
           <>
@@ -456,7 +474,7 @@ export function FacilityDetail({ id }: { id: string }) {
       ? [safety.data]
       : [];
   return (
-    <DataState {...resource} retry={resource.reload}>
+    <DataState {...resource} retry={resource.reload} skeleton="detail">
       {!f ? (
         <>
           <Header title="시설 상세" back="/facilities" />

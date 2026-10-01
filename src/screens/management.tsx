@@ -1,5 +1,7 @@
 "use client";
 import { useState } from "react";
+import { useSearchFilters } from "@/lib/use-search-filters";
+import { searchFilters, regionFilters } from "@/lib/search-filters";
 import { Search } from "lucide-react";
 import { useSession } from "@/components/shell";
 import {
@@ -36,7 +38,10 @@ export function AdminManagement() {
     allowed ? "/api/admins/regions" : null,
     "admin",
   );
-  const [query, setQuery] = useState("");
+  const {
+    filters: { q: query },
+    setFilter,
+  } = useSearchFilters(searchFilters);
   const [selected, setSelected] = useState<Profile>();
   const mutation = useMutation();
   const rows = listOf(resource.data).filter((a) =>
@@ -89,6 +94,7 @@ export function AdminManagement() {
               지역 관리자 계정과 권한을 관리합니다.
             </p>
             <Stats
+              loading={resource.loading}
               items={[
                 {
                   label: "전체",
@@ -117,7 +123,7 @@ export function AdminManagement() {
               <Search size={16} />
               <input
                 value={query}
-                onChange={(e) => setQuery(e.target.value)}
+                onChange={(e) => setFilter("q", e.target.value)}
                 placeholder="아이디 또는 지역 검색"
                 aria-label="관리자 검색"
               />
@@ -228,7 +234,10 @@ export function RegionOverview() {
     allowed ? "/api/admins" : null,
     "admin",
   );
-  const [sort, setSort] = useState("all");
+  const {
+    filters: { sort },
+    setFilter,
+  } = useSearchFilters(regionFilters);
   const rows = listOf(regions.data)
     .map((region) => {
       const selected = listOf(inspections.data).filter(
@@ -272,7 +281,7 @@ export function RegionOverview() {
             </p>
             <Tabs
               value={sort}
-              onChange={setSort}
+              onChange={(value) => setFilter("sort", value)}
               items={[
                 { label: "전체", value: "all" },
                 { label: "조치 완료율 순", value: "safe" },

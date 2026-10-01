@@ -172,6 +172,9 @@ createServer(async (req, res) => {
     );
   }
   if (path.endsWith("/me")) return reply(current);
+  const delay = Number(process.env.CHECHE_FIXTURE_DELAY_MS ?? 0);
+  if (Number.isFinite(delay) && delay > 0)
+    await new Promise((resolve) => setTimeout(resolve, Math.min(delay, 10000)));
   if (path.endsWith("/regions")) return reply(regions);
   if (path.endsWith("/region")) {
     const input = JSON.parse(Buffer.concat(chunks).toString() || "{}");

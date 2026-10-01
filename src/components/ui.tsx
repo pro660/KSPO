@@ -20,6 +20,7 @@ import {
   Info,
 } from "lucide-react";
 import { label } from "@/lib/format";
+import { Skeleton, type SkeletonVariant } from "./skeleton";
 export function Button({
   children,
   variant = "primary",
@@ -131,9 +132,12 @@ export function Badge({
 }
 export function Stats({
   items,
+  loading = false,
 }: {
   items: { label: string; value: ReactNode; tone: string }[];
+  loading?: boolean;
 }) {
+  if (loading) return <Skeleton variant="stats" count={items.length} />;
   return (
     <div
       className={`stats grid ${items.length === 4 ? "grid-cols-2" : "grid-cols-3"} gap-2`}
@@ -280,14 +284,16 @@ export function DataState({
   error,
   retry,
   children,
+  skeleton = "list",
 }: {
   loading: boolean;
   error: string;
   retry?: () => void;
   children: ReactNode;
+  skeleton?: SkeletonVariant;
 }) {
   return loading ? (
-    <Loading />
+    <Skeleton variant={skeleton} />
   ) : error ? (
     <ErrorMessage message={error} retry={retry} />
   ) : (
