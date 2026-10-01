@@ -46,13 +46,14 @@ npm run dev
 ## API 연동
 
 - 모든 API는 Gateway만 호출합니다. 관리자·사용자 JWT를 `checheAdminToken`, `checheUserToken`으로 분리하며 내부 `X-User-*` 헤더는 전송하지 않습니다.
-- 401은 해당 토큰 제거 후 만료 안내가 있는 로그인 화면으로, 428은 지역 설정으로 이동합니다. 로그인 자체의 401은 아이디·비밀번호 확인 안내로 표시합니다. 빈 오류 응답, 204, 400/403/404/409/502/503/504, 네트워크 오류를 처리합니다. 서버 전달은 60초, 브라우저 요청은 65초 제한이 있으며 사용자 취소 신호도 유지합니다.
+- 401은 해당 토큰 제거 후 만료 안내가 있는 로그인 화면으로, 428은 지역 설정으로 이동합니다. 로그인 자체의 401·403은 아이디·비밀번호 또는 계정 상태 안내로, 회원가입의 빈 403은 입력 내용·아이디 중복 확인 안내로 표시합니다. 빈 오류 응답, 204, 400/403/404/409/502/503/504, 네트워크 오류를 처리합니다. 서버 전달은 60초, 브라우저 요청은 65초 제한이 있으며 사용자 취소 신호도 유지합니다.
 - 사진 등록은 FormData를 사용하며 Content-Type boundary는 브라우저가 설정합니다. 이미지 최대 크기는 15MB입니다.
-- 예약은 내부 ID가 있는 운영 중 시설만 허용합니다. 06~21시 정각 1시간 슬롯, 인원 상한, 시작 전 취소, 중복 예약의 409 후 시간표 갱신을 처리합니다. 최종 권한·수용 인원·중복 검증은 서버 책임입니다.
-- 지역 선택 옵션과 관리자 권한은 서버 데이터를 사용합니다. 슈퍼 관리자 통계는 서울 25개 자치구 범위이며 시설·관리자·점검 데이터를 집계합니다.
-- 분석 결과는 읽기 전용입니다. 현재 명세에 결함 유형·위험도 수정 API가 없어 담당자 검토 결과와 예정일을 조치 메모로 저장합니다. 사진 한 장당 점검 한 건입니다. 재분석은 새 사진 점검으로 연결됩니다.
+- 홈은 `recommendations`, `aiExamplePrompt`, `quickSports`, `kspoFacilities`를 사용하며 검색의 `conditions`, `assistantMessage`, `recommendedFacility`를 기존 키워드·대화·추천 영역에 반영합니다. 시설 카드와 상세는 서버 요금·운영시간·편의시설을 표시하고 `distanceKm=null`이면 거리를 만들지 않습니다.
+- 예약은 내 지역의 내부 ID가 있는 운영 중 시설만 허용합니다. `/api/user/reservations/options`의 정각 1시간 슬롯·요금·잔여 인원과 오늘부터 5일의 날짜 선택지를 사용합니다. `/checkout`의 제공기관 예약 주소와 결제 지원 상태를 표시하며 예약 응답의 `totalFee`를 이용료로 표시합니다. 시작 전 취소, 중복 예약의 409 후 시간표 갱신을 처리하며 최종 권한·수용 인원·중복 검증은 서버 책임입니다.
+- 지역 선택 옵션과 관리자 권한은 서버 데이터를 사용합니다. 슈퍼 관리자 안전 점수는 `/api/inspections/super/regions/safety`, 반복 결함은 `/api/inspections/super/recurring-defects?minimumOccurrences=2`의 집계를 사용합니다.
+- 결함 유형·위험도·위치·확정 내용·조치 필요 여부·예정일은 `PATCH /api/inspections/{id}/confirmation`으로 저장합니다. 조치 필요 시 오늘 이후 예정일을 요구하며, 이후 조치 진행 상태와 메모는 보고서의 조치 변경에서 `/action`으로 저장합니다. 사진 한 장당 점검 한 건이며 재분석은 새 사진 점검으로 연결됩니다.
 - 점검 상세 조회 API가 없으므로 점검 목록에서 ID로 선택합니다. 보고서는 제공된 API의 UTF-8 텍스트를 `.txt`로 다운로드합니다. PDF 생성·추가 첨부 API는 가정하지 않습니다.
-- 찜한 시설과 선호 운동은 계정별 브라우저 로컬 설정입니다. 계정 찾기·비밀번호 변경은 API가 없어 준비 중 안내를 제공합니다.
+- 찜한 시설은 `/api/user/facilities/favorites`로 조회하고 `/{id}/favorite`의 POST·DELETE로 저장·해제합니다. 내부 시설 ID가 없는 외부 시설에는 저장 기능을 제공하지 않습니다. 선호 운동만 계정별 브라우저 로컬 설정입니다. 계정 찾기·비밀번호 변경은 API가 없어 준비 중 안내를 제공합니다.
 
 ### 로그인 요청이 백엔드 로그에 없을 때
 
@@ -70,7 +71,7 @@ npm run dev
 
 참고: [Next.js 16.3.7 서버 중계](https://nextjs.org/docs/app/guides/backend-for-frontend), [ngrok API 안내 헤더](https://ngrok.com/docs/pricing-limits/free-plan-limits), [ngrok 3004](https://ngrok.com/docs/errors/err_ngrok_3004), [ngrok 3200](https://ngrok.com/docs/errors/err_ngrok_3200).
 
-제공된 텍스트에는 사용자 홈·검색·예약 가능 시간·예약·이용 안내 및 일부 관리자 프로필의 전체 응답 스키마가 없습니다. `src/lib/types.ts`에서 해당 응답을 정의했고, 목록은 배열 또는 `content/items/results`, 홈은 `facilities/recommendedFacilities`, 검색은 `facilities/results`, 시간표는 `slots/availableTimes`를 처리합니다. 실제 `openapi.yaml`과 Gateway 응답에 따라 이 타입과 정규화 함수를 최종 대조해야 합니다. 서버 장애를 샘플 데이터로 대체하지 않습니다.
+예약 options는 추가로 제공된 응답 스키마에 따라 `selectedDate`, `dates`, `timeSlots`, `minParticipants`, `maxParticipants`를 사용합니다. 날짜·시간 라벨과 시간대별 요금도 서버 값을 표시하며 `availability`의 간단한 시간 목록은 `availableStartTimes`로 정의합니다. 실제 Gateway의 시설 응답에 `regionCode`가 생략된 경우 서버의 `reservable`로 예약 가능 여부를 확인합니다. `regionCode`가 있으면 사용자 지역과도 대조합니다. 관리자 프로필 이름은 `username` 또는 `name`을 사용하며, 시설 이용 안내의 `notice`·`steps`와 checkout의 `reservationMode`·결제 지원 필드를 실제 응답에 맞춰 정의했습니다. 서버 장애를 샘플 데이터로 대체하지 않습니다.
 
 ## 검증
 

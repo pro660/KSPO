@@ -30,7 +30,7 @@ import {
   Stats,
 } from "@/components/ui";
 import { api, clearLogin, jsonBody } from "@/lib/api";
-import { dateLabel, label } from "@/lib/format";
+import { dateLabel, label, profileName } from "@/lib/format";
 import { useApi, useMutation } from "@/lib/hooks";
 import {
   listOf,
@@ -40,6 +40,8 @@ import {
   type ListResponse,
   type Profile,
   type RegionOption,
+  type RegionalSafetySummary,
+  type RecurringDefect,
   type SyncResult,
 } from "@/lib/types";
 export function InspectionRow({
@@ -211,6 +213,14 @@ export function SuperDashboard() {
   );
   const facilities = useApi<ListResponse<Facility>>("/api/facilities", "admin");
   const admins = useApi<ListResponse<Profile>>("/api/admins", "admin");
+  const safety = useApi<ListResponse<RegionalSafetySummary>>(
+    "/api/inspections/super/regions/safety",
+    "admin",
+  );
+  const recurring = useApi<ListResponse<RecurringDefect>>(
+    "/api/inspections/super/recurring-defects?minimumOccurrences=2",
+    "admin",
+  );
   const inspections = useApi<ListResponse<Inspection>>(
     "/api/inspections",
     "admin",
@@ -221,9 +231,7 @@ export function SuperDashboard() {
       i.actionStatus !== "RESOLVED" &&
       ["HIGH", "CRITICAL"].includes(i.severity),
   );
-  const districts = Array.from(
-    new Set(listOf(facilities.data).map((f) => f.regionName)),
-  ).slice(0, 3);
+  const districts = listOf(safety.data).slice(0, 3);
   return (
     <>
       <Header title="슈퍼 관리자" badge={<Badge>서울 전체</Badge>} />
@@ -282,38 +290,40 @@ export function SuperDashboard() {
           ]}
         />
         <SectionTitle href="/admin/regions">지역별 안전 현황</SectionTitle>
-        {(facilities.loading || inspections.loading) && <Skeleton />}
-        {districts.map((region) => {
-          const selected = rows.filter((i) => i.regionName === region);
-          const done = selected.filter(
-            (i) => i.actionStatus === "RESOLVED",
-          ).length;
-          const rate = selected.length
-            ? Math.round((done / selected.length) * 100)
-            : 0;
-          return (
-            <Link
-              href="/admin/regions"
-              className="region-progress"
-              key={region}
-            >
-              <span>{region.replace("서울특별시 ", "")}</span>
-              <div>
-                <i style={{ width: `${rate}%` }} />
-              </div>
-              <strong>{selected.length ? `${rate}%` : "—"}</strong>
-              <small>미조치 {selected.length - done}</small>
-            </Link>
-          );
-        })}
+        <DataState {...safety} retry={safety.reload}>
+          {districts.map((region) => {
+            return (
+              <Link
+                href="/admin/regions"
+                className="region-progress"
+                key={region.regionCode}
+              >
+                <span>{region.regionName.replace("서울특별시 ", "")}</span>
+                <div>
+                  <i
+                    style={{
+                      width: `${Math.max(0, Math.min(100, region.safetyScore))}%`,
+                    }}
+                  />
+                </div>
+                <strong>{region.safetyScore}점</strong>
+                <small>미조치 {region.openInspections}</small>
+              </Link>
+            );
+          })}
+          {!districts.length && (
+            <p className="muted text-sm">지역 안전 집계가 없습니다.</p>
+          )}
+        </DataState>
         <p className="muted text-[10px] mt-2">
-          비율은 전체 점검 중 조치 완료 비율입니다.
+          미해결 결함의 위험도를 반영한 서버 안전 점수입니다.
         </p>
         <SectionTitle href="/admin/admins" more="관리자 관리">
           지역 관리자 현황
         </SectionTitle>
         {admins.loading && <Skeleton />}
         {listOf(admins.data)
+          .filter((a) => a.role === "REGIONAL_ADMIN")
           .slice(0, 3)
           .map((a) => (
             <Link
@@ -322,9 +332,9 @@ export function SuperDashboard() {
               href="/admin/admins"
             >
               <strong>
-                {a.regionName?.replace("서울특별시 ", "") ?? "전체 지역"}
+                {a.regionName?.replace("서울특별시 ", "") || "지역 미설정"}
               </strong>
-              <span>{a.username}</span>
+              <span>{profileName(a)}</span>
               <Badge value={a.status} />
             </Link>
           ))}
@@ -341,6 +351,34 @@ export function SuperDashboard() {
         {!urgent.length && !inspections.loading && !inspections.error && (
           <p className="muted text-sm">긴급 미조치 항목이 없습니다.</p>
         )}
+        <SectionTitle>반복 결함</SectionTitle>
+        <DataState {...recurring} retry={recurring.reload}>
+          {listOf(recurring.data).length ? (
+            listOf(recurring.data).map((item) => (
+              <Link
+                key={`${item.facilityId}:${item.defectType}`}
+                className="list-card"
+                href={`/admin/facilities/${item.facilityId}`}
+              >
+                <div>
+                  <strong>{item.facilityName}</strong>
+                  <p>
+                    {label(item.defectType)} · 발생 {item.occurrenceCount}회 ·
+                    미조치 {item.openCount}건
+                  </p>
+                  {item.lastDetectedAt && (
+                    <small>최근 {dateLabel(item.lastDetectedAt)}</small>
+                  )}
+                </div>
+                <Badge value={item.highestSeverity} />
+              </Link>
+            ))
+          ) : (
+            <p className="muted text-sm">
+              2회 이상 발생한 반복 결함이 없습니다.
+            </p>
+          )}
+        </DataState>
         <Link href="/admin/facilities" className="button secondary mt-6">
           전체 시설 관리
         </Link>

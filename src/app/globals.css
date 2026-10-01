@@ -2174,7 +2174,7 @@
     display: flex;
     gap: 8px;
   }
-  .risk-options > span {
+  .risk-options > button {
     flex: 1;
     border: 1px solid #cbd5e1;
     border-radius: 9px;
@@ -2183,7 +2183,7 @@
     font-size: 12px;
     color: #64748b;
   }
-  .risk-options > span.selected {
+  .risk-options > button.selected {
     background: #ef4444;
     color: white;
     border-color: #ef4444;

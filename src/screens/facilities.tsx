@@ -23,7 +23,7 @@ import { useApi } from "@/lib/hooks";
 import { useSearchFilters } from "@/lib/use-search-filters";
 import { searchFilters } from "@/lib/search-filters";
 import { Skeleton } from "@/components/skeleton";
-import { isStoredFacility, readStoredArray } from "@/lib/preferences";
+import { isStoredFacility } from "@/lib/preferences";
 import { useFeedback } from "@/components/feedback";
 import type {
   Facility,
@@ -49,36 +49,64 @@ export function facilityHref(f: Facility) {
 }
 export function Favorite({ facility }: { facility: Facility }) {
   const notify = useFeedback();
-  const { profile } = useSession();
-  const key = `checheFavorites:${profile?.userId ?? "guest"}`;
-  const [saved, setSaved] = useState(false);
-  const identity = (f: Facility) =>
-    `${f.source}:${f.id ?? f.externalId ?? f.name}`;
+  const [saved, setSaved] = useState(facility.favorite ?? false);
+  const [busy, setBusy] = useState(false);
+  const lock = useRef(false);
+  const supported =
+    Number.isSafeInteger(facility.id) &&
+    Number(facility.id) > 0 &&
+    facility.source !== "SEOUL_OPEN_API" &&
+    facility.source !== "KSPO_OPEN_API";
   useEffect(() => {
-    const rows = readStoredArray(key, isStoredFacility);
-    setSaved(rows.some((f) => identity(f) === identity(facility)));
-  }, [key, facility]);
+    setSaved(facility.favorite ?? false);
+  }, [facility.id, facility.favorite]);
+  useEffect(() => {
+    const update = (event: Event) => {
+      const detail = (event as CustomEvent<{ id: number; favorite: boolean }>)
+        .detail;
+      if (detail.id === facility.id) setSaved(detail.favorite);
+    };
+    window.addEventListener("cheche-favorite", update);
+    return () => window.removeEventListener("cheche-favorite", update);
+  }, [facility.id]);
+  async function toggle() {
+    if (!supported || lock.current) return;
+    lock.current = true;
+    setBusy(true);
+    try {
+      await api(`/api/user/facilities/${facility.id}/favorite`, "user", {
+        method: saved ? "DELETE" : "POST",
+      });
+      window.dispatchEvent(
+        new CustomEvent("cheche-favorite", {
+          detail: { id: facility.id, favorite: !saved },
+        }),
+      );
+    } catch (error) {
+      notify(
+        error instanceof Error
+          ? error.message
+          : "즐겨찾기를 저장하지 못했습니다.",
+        "error",
+      );
+    } finally {
+      lock.current = false;
+      setBusy(false);
+    }
+  }
   return (
     <button
       type="button"
       className={`favorite ${saved ? "saved" : ""}`}
       aria-label={saved ? "찜 해제" : "시설 찜하기"}
       aria-pressed={saved}
-      onClick={() => {
-        const rows = readStoredArray(key, isStoredFacility).filter(
-          (f) => identity(f) !== identity(facility),
-        );
-        if (!saved) rows.push(facility);
-        try {
-          localStorage.setItem(key, JSON.stringify(rows));
-          setSaved(!saved);
-        } catch {
-          notify(
-            "저장 공간을 사용할 수 없습니다. 브라우저 저장 설정을 확인해주세요.",
-            "error",
-          );
-        }
-      }}
+      disabled={!supported || busy}
+      title={
+        !supported
+          ? "CheChe 등록 시설만 즐겨찾기에 저장할 수 있습니다."
+          : undefined
+      }
+      onClick={toggle}
     >
       {saved ? (
         <Heart size={20} fill="currentColor" />
@@ -120,12 +148,26 @@ export function FacilityCard({
         </Link>
         <p className="muted text-xs mt-1">
           {f.regionName} {f.closingTime && `· ${f.closingTime.slice(0, 5)}까지`}
+          {f.distanceKm != null && ` · ${f.distanceKm.toFixed(1)}km`}
         </p>
+        {(f.usageFee != null || f.nextAvailableTime) && (
+          <p className="muted text-xs mt-1">
+            {typeof f.usageFee === "number" ? money(f.usageFee) : f.usageFee}
+            {f.nextAvailableTime && ` · 다음 이용 ${f.nextAvailableTime}`}
+          </p>
+        )}
         <div className="flex items-center flex-wrap gap-2 mt-3">
           <Badge tone="gray">{f.type}</Badge>
           <Badge value={f.status} />
           {f.source === "KSPO_OPEN_API" && <Badge>KSPO 공식 시설</Badge>}
           {f.source === "SEOUL_OPEN_API" && <Badge>서울시 공공시설</Badge>}
+          {Array.from(new Set(f.tags))
+            .filter((tag) => tag !== f.type && tag !== f.statusLabel)
+            .map((tag) => (
+              <Badge key={tag} tone="gray">
+                {tag}
+              </Badge>
+            ))}
         </div>
       </div>
       {!featured && <Favorite facility={f} />}
@@ -142,13 +184,25 @@ export function HomeScreen() {
   const data = resource.data;
   const facilities = Array.isArray(data)
     ? data
-    : (data?.recommendedFacilities ?? data?.facilities ?? []);
+    : (data?.recommendations ??
+      data?.recommendedFacilities ??
+      data?.facilities ??
+      []);
   const kspo = Array.isArray(data) ? [] : (data?.kspoFacilities ?? []);
+  const example =
+    (!Array.isArray(data) && data?.aiExamplePrompt) ||
+    "원하는 운동과 시간대를 입력해주세요";
+  const sportIcons: Record<string, GraphicName> = {
+    축구: "football",
+    배드민턴: "badminton",
+    수영: "swim",
+    농구: "basketball",
+  };
   const sports: { label: string; name: GraphicName }[] = [
-    { label: "축구", name: "football" },
-    { label: "배드민턴", name: "badminton" },
-    { label: "수영", name: "swim" },
-    { label: "농구", name: "basketball" },
+    ...((!Array.isArray(data) && data?.quickSports) || []).map((sport) => ({
+      label: sport,
+      name: sportIcons[sport] ?? ("more" as GraphicName),
+    })),
     { label: "더보기", name: "more" },
   ];
   return (
@@ -173,7 +227,7 @@ export function HomeScreen() {
           onSubmit={(e) => {
             e.preventDefault();
             router.push(
-              `/chat?q=${encodeURIComponent(query || "오늘 저녁 7시 이후 가능한 배드민턴장을 찾아줘")}`,
+              `/chat?q=${encodeURIComponent(query.trim() || (!Array.isArray(data) && data?.aiExamplePrompt) || "")}`,
             );
           }}
         >
@@ -181,7 +235,7 @@ export function HomeScreen() {
             aria-label="운동 검색"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="오늘 저녁 7시 이후 가능한 배드민턴장을 찾아줘"
+            placeholder={example}
           />
           <button type="submit">검색</button>
         </form>
@@ -189,9 +243,9 @@ export function HomeScreen() {
       <div className="sports-shortcuts">
         {sports.map((s) => (
           <Link
-            key={s.name}
+            key={s.label}
             href={
-              s.name === "more"
+              s.label === "더보기"
                 ? "/facilities"
                 : `/facilities?q=${encodeURIComponent(s.label)}`
             }
@@ -292,7 +346,23 @@ export function SearchScreen({ chat = false }: { chat?: boolean }) {
   const facilities = Array.isArray(result)
     ? result
     : (result?.facilities ?? result?.results ?? []);
-  const keywords = Array.isArray(result) ? [] : (result?.keywords ?? []);
+  const conditions = Array.isArray(result) ? undefined : result?.conditions;
+  const keywords = conditions
+    ? [
+        conditions.region,
+        conditions.sport,
+        conditions.time,
+        conditions.reservationAvailableOnly ? "예약 가능 시설" : null,
+      ].filter((value): value is string => !!value)
+    : Array.isArray(result)
+      ? []
+      : (result?.keywords ?? []);
+  const recommended = Array.isArray(result)
+    ? result[0]
+    : result?.recommendedFacility;
+  const assistantMessage = Array.isArray(result)
+    ? undefined
+    : result?.assistantMessage;
   return (
     <>
       <Header
@@ -377,6 +447,18 @@ export function SearchScreen({ chat = false }: { chat?: boolean }) {
         )}
         {result && (
           <>
+            {assistantMessage && (
+              <div className={chat ? "chat-row" : "notice blue mt-4"}>
+                {chat && (
+                  <span className="ai-avatar">
+                    <DesignGraphic name="sparkles" />
+                  </span>
+                )}
+                <p className={chat ? "chat-bubble" : undefined}>
+                  {assistantMessage}
+                </p>
+              </div>
+            )}
             <section className="search-summary">
               <h2>조건을 이렇게 이해했어요</h2>
               <div className="flex flex-wrap gap-2 mt-3">
@@ -389,14 +471,14 @@ export function SearchScreen({ chat = false }: { chat?: boolean }) {
                   </Badge>
                 ))}
               </div>
-              {facilities[0] && (
+              {recommended && (
                 <Link
-                  href={facilityHref(facilities[0])}
+                  href={facilityHref(recommended)}
                   className="recommended-result"
                 >
                   <small>추천 시설</small>
-                  <strong>{facilities[0].name}</strong>
-                  <Badge value={facilities[0].status} />
+                  <strong>{recommended.name}</strong>
+                  <Badge value={recommended.status} />
                 </Link>
               )}
             </section>
@@ -473,6 +555,16 @@ export function FacilityDetail({ id }: { id: string }) {
     : safety.data
       ? [safety.data]
       : [];
+  if (resource.error) {
+    return (
+      <>
+        <Header title="시설 상세" back="/facilities" />
+        <div className="page-content">
+          <ErrorMessage message={resource.error} retry={resource.reload} />
+        </div>
+      </>
+    );
+  }
   return (
     <DataState {...resource} retry={resource.reload} skeleton="detail">
       {!f ? (
@@ -532,8 +624,9 @@ export function FacilityDetail({ id }: { id: string }) {
                 {
                   graphic: "clock",
                   title: "운영시간",
-                  value:
-                    guide.data?.openingTime || f.openingTime
+                  value: f.weekdayOpeningTime
+                    ? `평일 ${f.weekdayOpeningTime.slice(0, 5)}–${f.weekdayClosingTime?.slice(0, 5) ?? ""}${f.weekendOpeningTime ? ` / 주말 ${f.weekendOpeningTime.slice(0, 5)}–${f.weekendClosingTime?.slice(0, 5) ?? ""}` : ""}`
+                    : guide.data?.openingTime || f.openingTime
                       ? `${(guide.data?.openingTime || f.openingTime)?.slice(0, 5)}–${(guide.data?.closingTime || f.closingTime)?.slice(0, 5) ?? ""}`
                       : "시설 문의",
                 },
@@ -541,9 +634,13 @@ export function FacilityDetail({ id }: { id: string }) {
                   graphic: "fee",
                   title: "이용요금",
                   value:
-                    guide.data?.pricePerPerson != null
-                      ? money(guide.data.pricePerPerson)
-                      : "시설 문의",
+                    f.usageFee != null
+                      ? typeof f.usageFee === "number"
+                        ? money(f.usageFee)
+                        : f.usageFee
+                      : guide.data?.pricePerPerson != null
+                        ? money(guide.data.pricePerPerson)
+                        : "시설 문의",
                 },
                 {
                   graphic: "calendar",
@@ -562,18 +659,23 @@ export function FacilityDetail({ id }: { id: string }) {
             </div>
             <SectionTitle>이용 가능한 시설</SectionTitle>
             <div className="amenities">
-              <div>
-                <DesignGraphic
-                  name={
-                    f.type.includes("수영")
-                      ? "swim"
-                      : f.type.includes("헬스")
-                        ? "gym"
-                        : "badminton"
-                  }
-                />
-                <span>{f.type}</span>
-              </div>
+              {(f.availableFacilities?.length
+                ? f.availableFacilities
+                : [f.type]
+              ).map((name) => (
+                <div key={name}>
+                  <DesignGraphic
+                    name={
+                      name.includes("수영")
+                        ? "swim"
+                        : name.includes("헬스")
+                          ? "gym"
+                          : "badminton"
+                    }
+                  />
+                  <span>{name}</span>
+                </div>
+              ))}
             </div>
             <SectionTitle>이용 날</SectionTitle>
             <div className="date-select">
@@ -597,9 +699,33 @@ export function FacilityDetail({ id }: { id: string }) {
             <p className="muted leading-6 text-sm">
               {guide.data?.description ||
                 guide.data?.guide ||
+                guide.data?.notice ||
                 f.publicNotice ||
                 "자세한 이용 조건은 시설에 문의해주세요."}
             </p>
+            {guide.data?.steps?.length ? (
+              <ul className="checklist mt-3">
+                {guide.data.steps.map((step) => (
+                  <li key={step}>{step}</li>
+                ))}
+              </ul>
+            ) : null}
+            <div className="info-list mt-3">
+              {[
+                ["요금 안내", f.feeInfo],
+                ["수용 인원", f.capacity != null ? `${f.capacity}명` : null],
+                ["신청 방법", f.applicationMethod],
+                ["휴관일", f.closedDays],
+                ["편의시설", f.amenities?.join(" · ")],
+              ]
+                .filter(([, value]) => value)
+                .map(([title, value]) => (
+                  <p key={title}>
+                    <span>{title}</span>
+                    <strong>{value}</strong>
+                  </p>
+                ))}
+            </div>
             {(safeUrl(guide.data?.reservationUrl) || safeUrl(f.sourceUrl)) && (
               <a
                 href={
@@ -652,7 +778,7 @@ export function FacilityDetail({ id }: { id: string }) {
                 <p className="notice blue">
                   {isExternal
                     ? "공공 API 시설은 현재 검색·이용 안내를 지원합니다."
-                    : f.regionCode !== profile?.regionCode
+                    : f.regionCode && f.regionCode !== profile?.regionCode
                       ? "내 지역으로 설정된 지역의 시설만 예약할 수 있습니다."
                       : "현재 운영 상태에서는 예약할 수 없습니다."}
                 </p>

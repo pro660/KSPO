@@ -86,8 +86,10 @@ export function gatewayMethods(path: string): string[] {
     [new RegExp(`^/api/admins/${id}/authority$`), ["PATCH"]],
     [/^\/api\/user\/facilities\/home$/, ["GET"]],
     [/^\/api\/user\/facilities\/search$/, ["POST"]],
+    [/^\/api\/user\/facilities\/favorites$/, ["GET"]],
+    [new RegExp(`^/api/user/facilities/${id}/favorite$`), ["POST", "DELETE"]],
     [new RegExp(`^/api/user/facilities/${id}(?:/usage-guide)?$`), ["GET"]],
-    [/^\/api\/user\/reservations\/availability$/, ["GET"]],
+    [/^\/api\/user\/reservations\/(?:availability|options|checkout)$/, ["GET"]],
     [/^\/api\/user\/(?:reservations|reports)$/, ["GET", "POST"]],
     [new RegExp(`^/api/user/(?:reservations|reports)/${id}$`), ["GET"]],
     [new RegExp(`^/api/user/reservations/${id}/cancel$`), ["PATCH"]],
@@ -99,7 +101,12 @@ export function gatewayMethods(path: string): string[] {
     [new RegExp(`^/api/inspections/facilities/${id}/history$`), ["GET"]],
     [new RegExp(`^/api/inspections/public/facilities/${id}/status$`), ["GET"]],
     [new RegExp(`^/api/inspections/${id}/report$`), ["GET"]],
-    [new RegExp(`^/api/inspections/${id}/action$`), ["PATCH"]],
+    [new RegExp(`^/api/inspections/${id}/(?:action|confirmation)$`), ["PATCH"]],
+    [
+      /^\/api\/inspections\/super\/(?:regions\/safety|recurring-defects)$/,
+      ["GET"],
+    ],
+    [/^\/images\/facility-default\.svg$/, ["GET"]],
     [/^\/(?:inspection-photos|report-photos|uploads)\/[^/]+$/, ["GET"]],
   ];
   const methods = routes.find(([pattern]) => pattern.test(path))?.[1] ?? [];

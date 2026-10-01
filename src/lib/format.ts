@@ -1,4 +1,6 @@
-import type { Facility, Reservation, Inspection } from "./types";
+import type { Facility, Reservation, Inspection, Profile } from "./types";
+export const profileName = (profile?: Profile) =>
+  profile?.username || profile?.name || "사용자";
 export const isUrgentInspection = (inspection: Inspection) =>
   inspection.actionStatus !== "RESOLVED" &&
   ["HIGH", "CRITICAL"].includes(inspection.severity);
@@ -58,8 +60,12 @@ export function canReserve(f: Facility, regionCode?: string | null) {
   return (
     Number.isSafeInteger(f.id) &&
     Number(f.id) > 0 &&
+    f.reservable !== false &&
     (regionCode === undefined ||
-      (!!regionCode && f.regionCode === regionCode)) &&
+      (!!regionCode &&
+        (f.regionCode
+          ? f.regionCode === regionCode
+          : f.reservable === true))) &&
     f.status === "OPERATING" &&
     f.source !== "SEOUL_OPEN_API" &&
     f.source !== "KSPO_OPEN_API"

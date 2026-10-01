@@ -20,13 +20,12 @@ import { api, jsonBody } from "@/lib/api";
 import { useApi, useMutation } from "@/lib/hooks";
 import {
   listOf,
-  type Facility,
-  type Inspection,
+  type RegionalSafetySummary,
   type ListResponse,
   type Profile,
   type RegionOption,
 } from "@/lib/types";
-import { label } from "@/lib/format";
+import { label, profileName } from "@/lib/format";
 export function AdminManagement() {
   const { profile, refresh } = useSession();
   const allowed = profile?.role === "SUPER_USER";
@@ -45,7 +44,7 @@ export function AdminManagement() {
   const [selected, setSelected] = useState<Profile>();
   const mutation = useMutation();
   const rows = listOf(resource.data).filter((a) =>
-    `${a.username} ${a.regionName ?? ""}`.includes(query),
+    `${profileName(a)} ${a.regionName ?? ""}`.includes(query),
   );
   async function save(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -140,12 +139,16 @@ export function AdminManagement() {
                     }}
                   >
                     <span className="avatar small">
-                      {a.username.slice(0, 1).toUpperCase()}
+                      {profileName(a).slice(0, 1).toUpperCase()}
                     </span>
                     <div>
-                      <strong>{a.username}</strong>
+                      <strong>{profileName(a)}</strong>
                       <p>
-                        {a.regionName || "전체 지역"} · {label(a.role)}
+                        {a.regionName ||
+                          (a.role === "SUPER_USER"
+                            ? "전체 지역"
+                            : "지역 미설정")}{" "}
+                        · {label(a.role)}
                       </p>
                     </div>
                     <Badge value={a.status} />
@@ -178,7 +181,7 @@ export function AdminManagement() {
           }
         >
           <form id="admin-authority-form" onSubmit={save} className="space-y-4">
-            <p className="font-bold">{selected.username}</p>
+            <p className="font-bold">{profileName(selected)}</p>
             <Field label="역할">
               <select name="role" defaultValue={selected.role} required>
                 <option value="REGIONAL_ADMIN">지역 관리자</option>
@@ -218,16 +221,8 @@ export function AdminManagement() {
 export function RegionOverview() {
   const { profile } = useSession();
   const allowed = profile?.role === "SUPER_USER";
-  const regions = useApi<ListResponse<RegionOption>>(
-    allowed ? "/api/admins/regions" : null,
-    "admin",
-  );
-  const facilities = useApi<ListResponse<Facility>>(
-    allowed ? "/api/facilities" : null,
-    "admin",
-  );
-  const inspections = useApi<ListResponse<Inspection>>(
-    allowed ? "/api/inspections" : null,
+  const safety = useApi<ListResponse<RegionalSafetySummary>>(
+    allowed ? "/api/inspections/super/regions/safety" : null,
     "admin",
   );
   const admins = useApi<ListResponse<Profile>>(
@@ -238,35 +233,23 @@ export function RegionOverview() {
     filters: { sort },
     setFilter,
   } = useSearchFilters(regionFilters);
-  const rows = listOf(regions.data)
+  const rows = listOf(safety.data)
     .map((region) => {
-      const selected = listOf(inspections.data).filter(
-        (i) => i.regionCode === region.regionCode,
-      );
-      const open = selected.filter((i) => i.actionStatus !== "RESOLVED").length;
       return {
         ...region,
-        facilities: listOf(facilities.data).filter(
-          (f) => f.regionCode === region.regionCode,
-        ).length,
         admins: listOf(admins.data).filter(
           (a) => a.regionCode === region.regionCode,
         ).length,
-        open,
-        rate: selected.length
-          ? Math.round(((selected.length - open) / selected.length) * 100)
-          : null,
       };
     })
     .sort((a, b) =>
       sort === "safe"
-        ? (b.rate ?? -1) - (a.rate ?? -1)
+        ? b.safetyScore - a.safetyScore
         : sort === "open"
-          ? b.open - a.open
+          ? b.openInspections - a.openInspections
           : 0,
     );
-  const error =
-    regions.error || facilities.error || inspections.error || admins.error;
+  const error = safety.error || admins.error;
   return (
     <>
       <Header title="지역별 안전 현황" back="/admin" />
@@ -277,32 +260,27 @@ export function RegionOverview() {
           <>
             <p className="muted text-sm mb-5">
               서울 25개 자치구 · 시설{" "}
-              {facilities.data ? `${listOf(facilities.data).length}개` : "—"}
+              {safety.data
+                ? `${rows.reduce((sum, region) => sum + region.facilityCount, 0)}개`
+                : "—"}
             </p>
             <Tabs
               value={sort}
               onChange={(value) => setFilter("sort", value)}
               items={[
                 { label: "전체", value: "all" },
-                { label: "조치 완료율 순", value: "safe" },
+                { label: "안전 점수 순", value: "safe" },
                 { label: "미조치 순", value: "open" },
               ]}
             />
             <p className="muted text-[11px] mt-3">
-              완료율: 해당 지역 점검 중 조치 완료 비율
+              미해결 결함별 차감: 낮음 2 · 보통 5 · 높음 10 · 긴급 20점
             </p>
             <DataState
-              loading={
-                regions.loading ||
-                facilities.loading ||
-                inspections.loading ||
-                admins.loading
-              }
+              loading={safety.loading || admins.loading}
               error={error}
               retry={() => {
-                regions.reload();
-                facilities.reload();
-                inspections.reload();
+                safety.reload();
                 admins.reload();
               }}
             >
@@ -312,23 +290,19 @@ export function RegionOverview() {
                     <div>
                       <strong>{r.regionName}</strong>
                       <p>
-                        시설 {r.facilities} · 관리자 {r.admins}
+                        시설 {r.facilityCount} · 관리자 {r.admins}
                       </p>
-                      <small className="text-red-500">미조치 {r.open}</small>
+                      <small className="text-red-500">
+                        미조치 {r.openInspections} · 고위험{" "}
+                        {r.highRiskOpenInspections}
+                      </small>
                     </div>
-                    <Badge
-                      tone={
-                        r.rate === null
-                          ? "gray"
-                          : r.rate >= 90
-                            ? "green"
-                            : "amber"
-                      }
-                    >
-                      {r.rate === null ? "점검 없음" : `${r.rate}%`}
+                    <Badge tone={r.safetyScore >= 90 ? "green" : "amber"}>
+                      {r.safetyScore}점
                     </Badge>
                   </article>
                 ))}
+                {!rows.length && <Empty title="지역 안전 집계가 없습니다" />}
               </div>
             </DataState>
           </>

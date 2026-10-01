@@ -4,13 +4,14 @@ export function isStoredFacility(value: unknown): value is Facility {
   if (!value || typeof value !== "object") return false;
   const item = value as Record<string, unknown>;
   return (
-    ["name", "type", "regionCode", "regionName", "address", "status"].every(
+    ["name", "type", "regionName", "address", "status"].every(
       (key) => typeof item[key] === "string",
     ) &&
     (item.id == null ||
       (Number.isSafeInteger(item.id) && Number(item.id) > 0)) &&
     ["OPERATING", "UNDER_INSPECTION", "CLOSED"].includes(String(item.status)) &&
     [
+      "regionCode",
       "phone",
       "publicNotice",
       "sourceUrl",

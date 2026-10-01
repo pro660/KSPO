@@ -20,11 +20,18 @@ import {
   Header,
   PhotoPicker,
   SectionTitle,
+  Sheet,
   Stats,
   Tabs,
 } from "@/components/ui";
 import { api, jsonBody } from "@/lib/api";
-import { dateLabel, label, isUrgentInspection } from "@/lib/format";
+import {
+  dateLabel,
+  label,
+  isUrgentInspection,
+  localDate,
+  isCalendarDate,
+} from "@/lib/format";
 import { isResourceId } from "@/lib/paths";
 import { useApi, useMutation } from "@/lib/hooks";
 import {
@@ -32,6 +39,7 @@ import {
   type Facility,
   type Inspection,
   type ListResponse,
+  type Severity,
 } from "@/lib/types";
 import { InspectionRow } from "./admin";
 export function InspectionNew() {
@@ -47,6 +55,12 @@ export function InspectionNew() {
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!facility || !file) return;
+    if (!facility.regionCode || !facility.regionName) {
+      mutation.setError(
+        "시설의 관리 지역을 확인할 수 없습니다. 시설 정보를 다시 불러와주세요.",
+      );
+      return;
+    }
     const form = new FormData(e.currentTarget);
     form.set("facilityId", String(facility.id));
     form.set("facilityName", facility.name);
@@ -191,7 +205,9 @@ export function InspectionDetail({ id }: { id: string }) {
               <section className="analysis-result">
                 <div className="flex justify-between items-center">
                   <h2>{label(i.defectType)} 의심</h2>
-                  <Badge tone="green">분석 완료</Badge>
+                  <Badge tone="green">
+                    {i.confirmed ? "최종 확정" : "분석 완료"}
+                  </Badge>
                 </div>
                 <div className="flex justify-end mt-2">
                   <Badge value={i.severity}>위험도 {label(i.severity)}</Badge>
@@ -252,7 +268,7 @@ export function InspectionDetail({ id }: { id: string }) {
                   href={`/admin/inspections/${id}/confirm`}
                   className="button primary flex-1"
                 >
-                  담당자 검토 후 확정
+                  {i.confirmed ? "확정 내용 수정" : "담당자 검토 후 확정"}
                 </Link>
               </div>
               <Link
@@ -273,29 +289,41 @@ export function InspectionConfirm({ id }: { id: string }) {
   const i = resource.inspection;
   const mutation = useMutation();
   const router = useRouter();
+  const [severity, setSeverity] = useState<Severity>("LOW");
+  const [actionRequired, setActionRequired] = useState(true);
+  useEffect(() => {
+    if (i) {
+      setSeverity(i.severity);
+      setActionRequired(i.actionRequired ?? true);
+    }
+  }, [i]);
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const form = new FormData(e.currentTarget);
-    const note = String(form.get("actionNote") ?? "");
-    const due = String(form.get("due") ?? "");
-    const actionNote = due ? `${note}\n조치 예정일: ${due}` : note;
-    if (actionNote.length > 2000) {
-      mutation.setError(
-        "예정일을 포함한 조치 내용은 2,000자 이하로 입력해주세요.",
-      );
+    const due = String(form.get("actionDueDate") ?? "");
+    if (actionRequired && (!isCalendarDate(due) || due <= localDate())) {
+      mutation.setError("조치가 필요하면 오늘 이후의 예정일을 선택해주세요.");
       return;
     }
     await mutation.run(
       () =>
-        api(`/api/inspections/${id}/action`, "admin", {
+        api<Inspection>(`/api/inspections/${id}/confirmation`, "admin", {
           method: "PATCH",
           body: jsonBody({
-            status: form.get("status"),
-            actionNote,
+            defectType: form.get("defectType"),
+            severity,
+            locationDescription: String(
+              form.get("locationDescription") ?? "",
+            ).trim(),
+            detail: String(form.get("detail") ?? "").trim(),
+            actionRequired,
+            actionDueDate: actionRequired ? due : null,
           }),
         }),
       () => router.replace(`/admin/inspections/${id}/report`),
-      "검토 및 조치 내용이 저장되었습니다.",
+      "결함 분석이 최종 확정되었습니다.",
     );
   }
   return (
@@ -307,61 +335,83 @@ export function InspectionConfirm({ id }: { id: string }) {
             <form onSubmit={submit} className="space-y-5">
               <h2 className="font-semibold text-lg">최종 결함 정보</h2>
               <Field label="결함 유형">
-                <input readOnly value={label(i.defectType)} />
+                <select name="defectType" defaultValue={i.defectType} required>
+                  {[
+                    "CRACK",
+                    "CORROSION",
+                    "DEFORMATION",
+                    "SURFACE_DAMAGE",
+                    "WATER_LEAK",
+                    "OTHER",
+                  ].map((type) => (
+                    <option key={type} value={type}>
+                      {label(type)}
+                    </option>
+                  ))}
+                </select>
               </Field>
               <Field label="결함 위치">
-                <input readOnly value={i.locationDescription} />
+                <input
+                  name="locationDescription"
+                  required
+                  maxLength={240}
+                  defaultValue={i.locationDescription}
+                />
               </Field>
               <Field label="분석 내용">
-                <textarea readOnly value={i.reportSummary} rows={3} />
+                <textarea
+                  name="detail"
+                  required
+                  maxLength={2000}
+                  defaultValue={i.confirmedDetail ?? i.reportSummary}
+                  rows={3}
+                />
               </Field>
               <div>
                 <p className="text-sm font-medium mb-3">위험도</p>
                 <div className="risk-options">
                   {["LOW", "MEDIUM", "HIGH", "CRITICAL"].map((s) => (
-                    <span
+                    <button
+                      type="button"
                       key={s}
-                      className={i.severity === s ? "selected" : ""}
+                      className={severity === s ? "selected" : ""}
+                      aria-pressed={severity === s}
+                      onClick={() => setSeverity(s as Severity)}
                     >
                       {label(s)}
-                    </span>
+                    </button>
                   ))}
                 </div>
                 <p className="muted text-[11px] mt-2">
-                  서버 분석 결과입니다. 현장 의견은 조치 내용에 기록해주세요.
+                  현장 확인 결과에 맞춰 결함 유형과 위험도를 수정해주세요.
                 </p>
               </div>
-              <Field label="조치 상태">
-                <select name="status" defaultValue={i.actionStatus} required>
-                  {[
-                    "REPORTED",
-                    "REVIEWING",
-                    "ACTION_SCHEDULED",
-                    "RESOLVED",
-                  ].map((s) => (
-                    <option key={s} value={s}>
-                      {label(s)}
-                    </option>
-                  ))}
+              <Field label="조치 필요 여부">
+                <select
+                  value={String(actionRequired)}
+                  onChange={(event) =>
+                    setActionRequired(event.target.value === "true")
+                  }
+                >
+                  <option value="true">조치 필요</option>
+                  <option value="false">조치 불필요 (완료 처리)</option>
                 </select>
               </Field>
-              <Field label="담당자 확인·조치 내용">
-                <textarea
-                  name="actionNote"
-                  rows={4}
-                  maxLength={2000}
-                  defaultValue={i.actionNote ?? ""}
-                  placeholder="현장 확인 결과와 조치 내용을 기록해주세요."
+              <Field
+                label={actionRequired ? "조치 예정일 (필수)" : "조치 예정일"}
+                hint="조치가 필요하면 오늘 이후 날짜를 선택해주세요."
+              >
+                <input
+                  type="date"
+                  name="actionDueDate"
+                  min={localDate(tomorrow)}
+                  required={actionRequired}
+                  disabled={!actionRequired}
+                  defaultValue={i.actionDueDate ?? ""}
                 />
               </Field>
-              <Field
-                label="조치 예정일 (선택)"
-                hint="예정일은 조치 내용에 함께 기록됩니다."
-              >
-                <input type="date" name="due" />
-              </Field>
               <ErrorMessage message={mutation.error} />
-              <Button busy={mutation.busy}>검토 및 조치 저장</Button>
+              <Button busy={mutation.busy}>결함 최종 확정</Button>
               <Link
                 href={`/admin/inspections/${id}/report`}
                 className="text-link block text-center"
@@ -381,6 +431,27 @@ export function InspectionReport({ id }: { id: string }) {
   const resource = useInspection(id);
   const i = resource.inspection;
   const mutation = useMutation();
+  const action = useMutation();
+  const [editingAction, setEditingAction] = useState(false);
+  async function saveAction(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    await action.run(
+      () =>
+        api(`/api/inspections/${id}/action`, "admin", {
+          method: "PATCH",
+          body: jsonBody({
+            status: form.get("status"),
+            actionNote: form.get("actionNote"),
+          }),
+        }),
+      () => {
+        setEditingAction(false);
+        resource.reload();
+      },
+      "조치 상태가 저장되었습니다.",
+    );
+  }
   async function download() {
     await mutation.run(
       () =>
@@ -444,12 +515,30 @@ export function InspectionReport({ id }: { id: string }) {
               <p className="report-note">
                 {i.actionNote || "등록된 조치 내용이 없습니다."}
               </p>
-              <Link
+              <button
+                type="button"
                 className="text-link"
-                href={`/admin/inspections/${id}/confirm`}
+                onClick={() => {
+                  action.setError("");
+                  setEditingAction(true);
+                }}
               >
                 조치 내용 변경 ›
-              </Link>
+              </button>
+              {i.confirmed && (
+                <>
+                  <SectionTitle>담당자 최종 확정</SectionTitle>
+                  <p className="notice indigo">
+                    {i.confirmedDetail || "최종 확정되었습니다."}
+                  </p>
+                  <p className="muted text-xs mt-2">
+                    {i.confirmedAt && `확정: ${dateLabel(i.confirmedAt)} · `}
+                    {i.actionRequired
+                      ? `조치 예정일: ${i.actionDueDate ?? "미등록"}`
+                      : "조치 불필요"}
+                  </p>
+                </>
+              )}
               <SectionTitle>분석 요약</SectionTitle>
               <p className="notice indigo">{i.reportSummary}</p>
               <div className="report-file">
@@ -465,6 +554,45 @@ export function InspectionReport({ id }: { id: string }) {
           )}
         </DataState>
       </div>
+      {editingAction && i && (
+        <Sheet
+          title="조치 상태 변경"
+          busy={action.busy}
+          onClose={() => setEditingAction(false)}
+          footer={
+            <Button type="submit" form="inspection-action" busy={action.busy}>
+              조치 저장
+            </Button>
+          }
+        >
+          <form
+            id="inspection-action"
+            onSubmit={saveAction}
+            className="space-y-5"
+          >
+            <Field label="조치 상태">
+              <select name="status" defaultValue={i.actionStatus} required>
+                {["REPORTED", "REVIEWING", "ACTION_SCHEDULED", "RESOLVED"].map(
+                  (status) => (
+                    <option key={status} value={status}>
+                      {label(status)}
+                    </option>
+                  ),
+                )}
+              </select>
+            </Field>
+            <Field label="조치 내용">
+              <textarea
+                name="actionNote"
+                maxLength={2000}
+                rows={4}
+                defaultValue={i.actionNote ?? ""}
+              />
+            </Field>
+            <ErrorMessage message={action.error} />
+          </form>
+        </Sheet>
+      )}
     </>
   );
 }
@@ -638,7 +766,7 @@ export function InspectionsList({
                   params.get("view") === "reports"
                     ? `/admin/inspections/${i.id}/report`
                     : actions
-                      ? `/admin/inspections/${i.id}/confirm`
+                      ? `/admin/inspections/${i.id}/report`
                       : undefined
                 }
               />

@@ -27,9 +27,9 @@ import {
   type Reservation,
   type UserReport,
 } from "@/lib/types";
-import { dateLabel, label } from "@/lib/format";
+import { dateLabel, label, profileName } from "@/lib/format";
 import { facilityHref } from "./facilities";
-import { isStoredFacility, readStoredArray } from "@/lib/preferences";
+import { readStoredArray } from "@/lib/preferences";
 import { isResourceId } from "@/lib/paths";
 export function MyScreen() {
   const { profile } = useSession();
@@ -38,15 +38,15 @@ export function MyScreen() {
     "/api/user/reservations",
   );
   const reports = useApi<ListResponse<UserReport>>("/api/user/reports");
-  const [favorites, setFavorites] = useState<Facility[]>([]);
+  const favoriteResource = useApi<ListResponse<Facility>>(
+    "/api/user/facilities/favorites",
+  );
+  const favorites = listOf(favoriteResource.data);
   const [sheet, setSheet] = useState("");
   const [sports, setSports] = useState<string[]>([]);
   const [draftSports, setDraftSports] = useState<string[]>([]);
   const preference = useMutation();
   useEffect(() => {
-    setFavorites(
-      readStoredArray(`checheFavorites:${profile?.userId}`, isStoredFacility),
-    );
     setSports(
       readStoredArray(
         `checheSports:${profile?.userId}`,
@@ -61,10 +61,10 @@ export function MyScreen() {
       <div className="page-content">
         <div className="profile-card">
           <div className="avatar">
-            {profile?.username.slice(0, 1).toUpperCase()}
+            {profileName(profile).slice(0, 1).toUpperCase()}
           </div>
           <div>
-            <h2>{profile?.username} 님</h2>
+            <h2>{profileName(profile)} 님</h2>
             <p>{profile?.regionName} · 일반 사용자</p>
             <Link className="text-link" href="/setup-region">
               내 지역 변경 ›
@@ -73,7 +73,9 @@ export function MyScreen() {
         </div>
         <SectionTitle>나의 활동</SectionTitle>
         <Stats
-          loading={reservations.loading || reports.loading}
+          loading={
+            reservations.loading || reports.loading || favoriteResource.loading
+          }
           items={[
             {
               label: "예약",
@@ -87,7 +89,7 @@ export function MyScreen() {
             },
             {
               label: "찜한 시설",
-              value: `${favorites.length}곳`,
+              value: favoriteResource.data ? `${favorites.length}곳` : "—",
               tone: "amber",
             },
           ]}
@@ -100,24 +102,26 @@ export function MyScreen() {
           }}
         />
         <SectionTitle>찜한 시설</SectionTitle>
-        {favorites.length ? (
-          favorites.map((f) => (
-            <Link
-              className="favorite-row"
-              key={f.id ?? f.externalId ?? f.name}
-              href={facilityHref(f)}
-            >
-              <strong>♥ {f.name}</strong>
-              <span>
-                {f.type} · {f.regionName}
-              </span>
-            </Link>
-          ))
-        ) : (
-          <p className="muted text-sm py-4">
-            마음에 드는 시설의 하트를 눌러 저장해보세요.
-          </p>
-        )}
+        <DataState {...favoriteResource} retry={favoriteResource.reload}>
+          {favorites.length ? (
+            favorites.map((f) => (
+              <Link
+                className="favorite-row"
+                key={f.id ?? f.externalId ?? f.name}
+                href={facilityHref(f)}
+              >
+                <strong>♥ {f.name}</strong>
+                <span>
+                  {f.type} · {f.regionName}
+                </span>
+              </Link>
+            ))
+          ) : (
+            <p className="muted text-sm py-4">
+              마음에 드는 시설의 하트를 눌러 저장해보세요.
+            </p>
+          )}
+        </DataState>
         <SectionTitle>설정</SectionTitle>
         <div className="settings-list">
           <button
@@ -225,7 +229,7 @@ export function MyScreen() {
             <div className="info-list">
               <p>
                 <span>아이디</span>
-                <strong>{profile?.username}</strong>
+                <strong>{profileName(profile)}</strong>
               </p>
               <p>
                 <span>내 지역</span>

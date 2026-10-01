@@ -26,24 +26,28 @@ import {
   localDate,
   isCalendarDate,
   money,
+  safeUrl,
 } from "@/lib/format";
 import { useApi, useMutation } from "@/lib/hooks";
 import {
   listOf,
-  type Availability,
   type Facility,
   type ListResponse,
   type Reservation,
+  type ReservationOptions,
+  type ReservationCheckout,
   type TimeSlot,
 } from "@/lib/types";
 export function CalendarSheet({
   value,
   onSelect,
   onClose,
+  allowedDates,
 }: {
   value: string;
   onSelect: (value: string) => void;
   onClose: () => void;
+  allowedDates?: string[];
 }) {
   const [selected, setSelected] = useState(value);
   const [month, setMonth] = useState(() => new Date(`${value}T12:00:00`));
@@ -56,7 +60,10 @@ export function CalendarSheet({
       onClose={onClose}
       footer={
         <Button
-          disabled={selected < today}
+          disabled={
+            selected < today ||
+            (allowedDates != null && !allowedDates.includes(selected))
+          }
           onClick={() => {
             onSelect(selected);
             onClose();
@@ -104,7 +111,10 @@ export function CalendarSheet({
           return (
             <button
               key={day}
-              disabled={day < today}
+              disabled={
+                day < today ||
+                (allowedDates != null && !allowedDates.includes(day))
+              }
               aria-label={dateLabel(day)}
               aria-pressed={selected === day}
               className={selected === day ? "selected" : ""}
@@ -123,27 +133,30 @@ export function CalendarSheet({
   );
 }
 export function normalizeSlots(
-  data: Availability | TimeSlot[] | string[] | undefined,
-): TimeSlot[] {
+  data: ReservationOptions | undefined,
+): (TimeSlot & { available: boolean })[] {
   if (!data) return [];
-  const raw = Array.isArray(data)
-    ? data
-    : (data.slots ?? data.availableTimes ?? []);
-  return raw
-    .map((s) => (typeof s === "string" ? { startTime: s, available: true } : s))
+  return data.timeSlots
+    .map((s) => ({ ...s, available: s.status === "AVAILABLE" }))
     .filter(
       (s) =>
         /^\d{2}:00(?::00)?$/.test(s.startTime) &&
-        Number(s.startTime.slice(0, 2)) >= 6 &&
-        Number(s.startTime.slice(0, 2)) <= 21,
+        Number(s.startTime.slice(0, 2)) >= 0 &&
+        Number(s.startTime.slice(0, 2)) <= 23,
     );
 }
 export function BookingScreen({ id }: { id: string }) {
   const { profile } = useSession();
   const params = useSearchParams();
   const initial = params.get("date");
+  const today = localDate();
+  const defaultDates = Array.from({ length: 5 }, (_, offset) => {
+    const day = new Date(`${today}T12:00:00`);
+    day.setDate(day.getDate() + offset);
+    return localDate(day);
+  });
   const [date, setDate] = useState(
-    initial && isCalendarDate(initial) && initial >= localDate()
+    initial && isCalendarDate(initial) && defaultDates.includes(initial)
       ? initial
       : localDate(),
   );
@@ -151,40 +164,67 @@ export function BookingScreen({ id }: { id: string }) {
   const [time, setTime] = useState("");
   const [count, setCount] = useState(1);
   const facility = useApi<Facility>(`/api/user/facilities/${id}`);
-  const availability = useApi<Availability | TimeSlot[] | string[]>(
+  const availability = useApi<ReservationOptions>(
     facility.data && canReserve(facility.data, profile?.regionCode ?? null)
-      ? `/api/user/reservations/availability?facilityId=${id}&date=${date}`
+      ? `/api/user/reservations/options?facilityId=${id}&date=${date}`
       : null,
+  );
+  const checkout = useApi<ReservationCheckout>(
+    facility.data ? `/api/user/reservations/checkout?facilityId=${id}` : null,
   );
   const mutation = useMutation();
   const router = useRouter();
   const slots = normalizeSlots(availability.data);
   const slot = slots.find((s) => s.startTime === time);
-  const available =
-    availability.data && !Array.isArray(availability.data)
-      ? availability.data
-      : undefined;
-  const capacity =
-    slot?.remainingCapacity ??
-    available?.maxCapacity ??
-    facility.data?.maxCapacity;
-  const fee = available?.pricePerPerson;
+  const available = availability.data;
+  const dateOptions = available?.dates ?? [];
+  const dates = dateOptions
+    .filter((entry) => entry.available)
+    .map((entry) => entry.date);
+  const minimum = available?.minParticipants ?? 1;
+  const capacity = available
+    ? Math.min(
+        available.maxParticipants,
+        slot?.remainingCapacity ?? available.maxParticipants,
+      )
+    : undefined;
+  const fee = slot?.pricePerPerson ?? available?.pricePerPerson;
+  const externalUrl = safeUrl(checkout.data?.externalReservationUrl);
+  useEffect(() => {
+    if (
+      available &&
+      isCalendarDate(available.selectedDate) &&
+      available.selectedDate !== date
+    ) {
+      setTime("");
+      setDate(available.selectedDate);
+    }
+  }, [available, date]);
   useEffect(() => {
     setTime("");
     setCount(1);
   }, [date]);
   useEffect(() => {
-    if (capacity != null && count > capacity) setCount(Math.max(1, capacity));
-  }, [capacity, count]);
+    const next = Math.max(minimum, Math.min(count, capacity ?? count));
+    if (next !== count) setCount(next);
+  }, [capacity, minimum, count]);
   const selectable =
     !!slot?.available &&
-    (capacity == null || count <= capacity) &&
+    dates.includes(date) &&
+    available?.selectedDate === date &&
+    !!checkout.data &&
+    checkout.data.internalReservationAvailable !== false &&
+    count >= minimum &&
+    capacity != null &&
+    count <= capacity &&
     new Date(`${date}T${slot.startTime}`) > new Date();
   async function reserve() {
     if (
       !selectable ||
       availability.loading ||
       !!availability.error ||
+      checkout.loading ||
+      !!checkout.error ||
       !facility.data ||
       !canReserve(facility.data, profile?.regionCode ?? null)
     )
@@ -229,9 +269,11 @@ export function BookingScreen({ id }: { id: string }) {
               <>
                 <div className="booking-facility">
                   <div>
-                    <strong>{facility.data.name}</strong>
+                    <strong>
+                      {available?.facilityName ?? facility.data.name}
+                    </strong>
                     <p>
-                      {facility.data.type}
+                      {available?.facilityType ?? facility.data.type}
                       {fee != null && ` · 1인 ${money(fee)}`}
                     </p>
                   </div>
@@ -243,30 +285,36 @@ export function BookingScreen({ id }: { id: string }) {
                   1. 이용 날짜
                 </SectionTitle>
                 <div className="week-dates">
-                  {Array.from({ length: 5 }, (_, i) => {
-                    const d = new Date(`${date}T12:00:00`);
-                    d.setDate(d.getDate() + i);
-                    const iso = localDate(d);
+                  {dateOptions.map((option) => {
+                    const iso = option.date;
                     return (
                       <button
                         key={iso}
                         className={date === iso ? "selected" : ""}
+                        disabled={
+                          !option.available ||
+                          availability.loading ||
+                          mutation.busy
+                        }
                         onClick={() => setDate(iso)}
                       >
-                        <strong>{d.getDate()}</strong>
-                        <span>
-                          {
-                            ["일", "월", "화", "수", "목", "금", "토"][
-                              d.getDay()
-                            ]
-                          }
-                        </span>
+                        <strong>
+                          {option.dayLabel === option.dayOfWeek
+                            ? Number(option.date.slice(8))
+                            : option.dayLabel}
+                        </strong>
+                        <span>{option.dayOfWeek}</span>
                       </button>
                     );
                   })}
                 </div>
                 <Button
                   onClick={() => setCalendar(true)}
+                  disabled={
+                    availability.loading ||
+                    !!availability.error ||
+                    !dates.length
+                  }
                   className="compact mt-3"
                 >
                   날짜 변경
@@ -280,7 +328,7 @@ export function BookingScreen({ id }: { id: string }) {
                       {slots.map((s) => {
                         const disabled =
                           !s.available ||
-                          s.remainingCapacity === 0 ||
+                          s.remainingCapacity < minimum ||
                           new Date(`${date}T${s.startTime}`) <= new Date();
                         return (
                           <button
@@ -291,16 +339,20 @@ export function BookingScreen({ id }: { id: string }) {
                             onClick={() => setTime(s.startTime)}
                           >
                             <strong>
-                              {s.startTime.slice(0, 5)} – {endTime(s.startTime)}
+                              {s.startTime.slice(0, 5)} –{" "}
+                              {(s.endTime ?? endTime(s.startTime)).slice(0, 5)}
                             </strong>
                             <span>
-                              {disabled
-                                ? "마감"
-                                : s.remainingCapacity != null
-                                  ? `최대 ${s.remainingCapacity}명`
-                                  : "예약 가능"}
+                              {s.statusLabel ||
+                                (disabled
+                                  ? s.status === "RESERVED"
+                                    ? "예약 마감"
+                                    : "마감"
+                                  : s.remainingCapacity != null
+                                    ? `최대 ${s.remainingCapacity}명`
+                                    : "예약 가능")}
                             </span>
-                            {fee != null && <b>{money(fee)}</b>}
+                            <b>{money(s.pricePerPerson)}</b>
                             {time === s.startTime && <Check size={16} />}
                           </button>
                         );
@@ -320,18 +372,20 @@ export function BookingScreen({ id }: { id: string }) {
                 <div className="participant-counter">
                   <button
                     aria-label="인원 줄이기"
-                    disabled={count <= 1}
+                    disabled={count <= minimum}
                     onClick={() => setCount((c) => c - 1)}
                   >
                     <Minus size={16} />
                   </button>
                   <strong>{count}명</strong>
                   <span>
-                    {capacity != null ? `최대 ${capacity}명` : "이용 인원"}
+                    {capacity != null
+                      ? `최소 ${minimum}명 · 최대 ${capacity}명`
+                      : "이용 인원"}
                   </span>
                   <button
                     aria-label="인원 늘리기"
-                    disabled={capacity != null && count >= capacity}
+                    disabled={capacity == null || count >= capacity}
                     onClick={() => setCount((c) => c + 1)}
                   >
                     <Plus size={16} />
@@ -352,18 +406,45 @@ export function BookingScreen({ id }: { id: string }) {
                       <strong>총 예상 이용료</strong>
                       <strong>{money(fee * count)}</strong>
                     </p>
-                    <small>결제는 시설 안내에 따라 진행됩니다.</small>
+                    <small>
+                      {checkout.data?.onlinePaymentAvailable === false
+                        ? "온라인 결제는 지원되지 않습니다. 결제는 시설 안내를 확인해주세요."
+                        : "결제 방법은 제공기관 안내를 확인해주세요."}
+                    </small>
                   </div>
                 ) : (
                   <p className="notice mt-4">
                     이용료와 결제 방법은 시설에 문의해주세요.
                   </p>
                 )}
+                <ErrorMessage
+                  message={checkout.error}
+                  retry={checkout.reload}
+                />
+                {externalUrl && (
+                  <a
+                    className="button secondary mt-4"
+                    href={externalUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    제공기관 예약 페이지
+                  </a>
+                )}
+                {checkout.data?.internalReservationAvailable === false && (
+                  <p className="notice mt-3">
+                    이 시설의 예약은 제공기관 안내를 확인해주세요.
+                  </p>
+                )}
                 <ErrorMessage message={mutation.error} />
                 <Button
                   className="mt-5"
                   disabled={
-                    !selectable || availability.loading || !!availability.error
+                    !selectable ||
+                    availability.loading ||
+                    !!availability.error ||
+                    checkout.loading ||
+                    !!checkout.error
                   }
                   busy={mutation.busy}
                   onClick={reserve}
@@ -382,6 +463,7 @@ export function BookingScreen({ id }: { id: string }) {
           value={date}
           onSelect={setDate}
           onClose={() => setCalendar(false)}
+          allowedDates={dates}
         />
       )}
     </>
@@ -482,7 +564,7 @@ function ReservationCard({ reservation: r }: { reservation: Reservation }) {
       <div className="flex justify-between items-center mt-2">
         <span className="muted text-xs">
           {r.participantCount}명
-          {r.totalPrice != null && ` · ${money(r.totalPrice)}`}
+          {r.totalFee != null && ` · ${money(r.totalFee)}`}
         </span>
         <Link href={`/reservations/${r.id}`} className="small-link">
           예약 상세 보기 ›
@@ -528,10 +610,10 @@ export function ReservationDetail({ id }: { id: string }) {
                   <span>예약 번호</span>
                   <strong>{resource.data.id}</strong>
                 </p>
-                {resource.data.totalPrice != null && (
+                {resource.data.totalFee != null && (
                   <p>
                     <span>예상 이용료</span>
-                    <strong>{money(resource.data.totalPrice)}</strong>
+                    <strong>{money(resource.data.totalFee)}</strong>
                   </p>
                 )}
               </div>

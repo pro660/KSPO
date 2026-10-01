@@ -133,7 +133,13 @@ export async function api<T>(
       detail ||
         (options.public && response.status === 401
           ? "아이디 또는 비밀번호를 확인해주세요."
-          : "") ||
+          : options.public && path.endsWith("/login") && response.status === 403
+            ? "아이디·비밀번호 또는 계정 상태를 확인해주세요."
+            : options.public &&
+                path.endsWith("/register") &&
+                response.status === 403
+              ? "회원가입을 처리할 수 없습니다. 아이디 중복 여부와 입력 내용을 확인해주세요."
+              : "") ||
         statusMessages[response.status] ||
         `요청에 실패했습니다. (${response.status})`,
     );
