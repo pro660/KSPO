@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { ImageIcon, LoaderCircle } from "lucide-react";
-import { DEMO_MODE, photoUrl } from "@/lib/api";
+import { photoUrl } from "@/lib/api";
 import { fetchPhoto } from "@/lib/photos";
 import type { Account } from "@/lib/types";
 import { Button } from "./ui";
@@ -17,8 +17,7 @@ export function RemotePhoto({
   alt: string;
   className?: string;
 }) {
-  const source =
-    DEMO_MODE && path?.startsWith("data:image/") ? path : photoUrl(path);
+  const source = photoUrl(path);
   return (
     <PhotoContent
       key={`${account}:${source}`}

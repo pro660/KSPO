@@ -1,10 +1,6 @@
 import type { Account, LoginResponse } from "./types";
 import { safeRelativePath } from "./paths";
 export const API_BASE_URL = "/gateway";
-export const DEMO_MODE = process.env.NEXT_PUBLIC_CHECHE_DEMO_MODE === "true";
-export const AUTH_GUARD_DISABLED =
-  process.env.NODE_ENV !== "production" &&
-  process.env.NEXT_PUBLIC_CHECHE_DISABLE_AUTH_GUARD === "true";
 export const tokenKey = (account: Account) =>
   account === "admin" ? "checheAdminToken" : "checheUserToken";
 export function token(account: Account) {
@@ -71,10 +67,6 @@ export async function api<T>(
 ): Promise<T> {
   if (!/^\/(api|auth)\//.test(path) || !safeRelativePath(path))
     throw new Error("올바르지 않은 API 경로입니다.");
-  if (DEMO_MODE) {
-    const { demoRequest } = await import("./demo");
-    return demoRequest(path, account, init) as Promise<T>;
-  }
   const headers = new Headers(init.headers);
   for (const key of [...headers.keys()]) {
     if (key.toLowerCase().startsWith("x-user-")) headers.delete(key);
@@ -115,18 +107,16 @@ export async function api<T>(
       token(account) === requestToken
     ) {
       clearLogin(account);
-      if (!AUTH_GUARD_DISABLED)
-        window.location.assign(
-          account === "admin"
-            ? "/admin/login?reason=expired"
-            : "/login?reason=expired",
-        );
+      window.location.assign(
+        account === "admin"
+          ? "/admin/login?reason=expired"
+          : "/login?reason=expired",
+      );
     }
     if (
       response.status === 428 &&
       !options.public &&
       token(account) === requestToken &&
-      !AUTH_GUARD_DISABLED &&
       window.location.pathname !==
         (account === "admin" ? "/admin/setup-region" : "/setup-region")
     )

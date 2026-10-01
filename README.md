@@ -10,7 +10,7 @@ Copy-Item .env.example .env.local
 npm run dev
 ```
 
-기본 주소: http://localhost:3000 · 전체 화면 안내: http://localhost:3000/screens
+기본 주소: http://localhost:3000
 
 `.env.local`의 `CHECHE_API_BASE_URL`에 Gateway 주소를 설정합니다(기본값 `http://localhost:8080`). 기존 `NEXT_PUBLIC_CHECHE_API_BASE_URL`도 호환되며, 두 값이 있으면 서버용 `CHECHE_API_BASE_URL`이 우선합니다. 현재 주소를 바꿀 필요 없이 기존 설정을 그대로 사용할 수 있습니다. 환경변수 변경 후 개발 서버를 재시작하고, 배포 시에는 다시 빌드·배포하세요. 컨테이너에서 호스트의 Gateway를 사용할 때는 `http://host.docker.internal:8080` 등 컨테이너에서 접근 가능한 주소가 필요합니다.
 
@@ -59,7 +59,6 @@ npm run dev
 - 브라우저 Network에서 `POST /gateway/auth/user/login` 또는 `/gateway/auth/admin/login` 요청을 확인합니다. 요청이 없으면 필수 입력·브라우저 검증 오류를 확인합니다. 로그인에는 회원가입 전용 최소 길이·아이디 패턴을 강제하지 않습니다.
 - Next.js 실행 터미널의 `[gateway] POST /auth/user/login <상태> requestId=<ID>`로 실제 전달 시도를 확인합니다. 응답의 `X-Cheche-Request-Id`와 Gateway로 보내는 `X-Request-Id`가 같습니다. 비밀번호·토큰·요청 본문·쿼리는 로그에 남기지 않습니다. 백엔드가 해당 헤더를 로그에 기록하는지는 백엔드 설정에 달려 있습니다.
 - `ERR_NGROK_6024`는 ngrok 안내 페이지, `ERR_NGROK_3004`는 불완전한 HTTP 응답(대상 포트와 HTTP/HTTPS 설정 확인), `ERR_NGROK_3200`은 오프라인 터널입니다. 터널이 꺼졌으면 프론트엔드 수정만으로 복구되지 않습니다. 백엔드 머신에서 Gateway와 ngrok를 실행하고 현재 터널 주소가 환경변수와 같은지 확인하세요.
-- `NEXT_PUBLIC_CHECHE_DEMO_MODE=true`에서는 실제 백엔드를 호출하지 않습니다. 정상 연동은 demo/guard 설정을 모두 false로 두고 검증하세요.
 - 상대 사진 경로는 `/gateway`를 통해 요청합니다. 외부 절대 이미지 URL은 원래 호스트를 사용하므로 해당 호스트가 직접 접근 가능해야 합니다.
 
 ### 사진 등록과 조회 오류 구분
@@ -73,39 +72,16 @@ npm run dev
 
 제공된 텍스트에는 사용자 홈·검색·예약 가능 시간·예약·이용 안내 및 일부 관리자 프로필의 전체 응답 스키마가 없습니다. `src/lib/types.ts`에서 해당 응답을 정의했고, 목록은 배열 또는 `content/items/results`, 홈은 `facilities/recommendedFacilities`, 검색은 `facilities/results`, 시간표는 `slots/availableTimes`를 처리합니다. 실제 `openapi.yaml`과 Gateway 응답에 따라 이 타입과 정규화 함수를 최종 대조해야 합니다. 서버 장애를 샘플 데이터로 대체하지 않습니다.
 
-## 샘플 미리보기
-
-프로덕션 빌드에서는 `NEXT_PUBLIC_CHECHE_DISABLE_AUTH_GUARD` 값과 관계없이 인증·권한 가드가 적용됩니다.
-
-페이지 접근 가드만 임시 해제하려면 `.env.local`에 `NEXT_PUBLIC_CHECHE_DISABLE_AUTH_GUARD=true`를 설정하고 개발 서버를 재시작하세요. 로그인·지역 설정 자동 이동, 관리자 화면 권한 가드, 프로필 조회 중·실패 시 화면 차단을 생략합니다. API의 401·428 응답도 자동 이동 없이 오류로 표시합니다. 실제 Gateway 인증은 유지되므로 인증이 필요한 데이터는 로그인 후 조회·저장할 수 있습니다. 원복은 해당 값을 `false`로 바꾸고 재시작하면 됩니다.
-
-Gateway 없이 UI를 확인하려면 `.env.local`에서 `NEXT_PUBLIC_CHECHE_DEMO_MODE=true`로 명시하고 개발 서버를 재시작하세요. 샘플 배지가 표시되고 변경 사항은 브라우저에만 저장됩니다. 실제 API를 호출하지 않습니다.
-
-- 사용자: `cheche_user` / `password123`
-- 지역 관리자: `seoul-admin` / `password123`
-- 슈퍼 관리자: `super-admin` / `password123`
-
-로그인 화면의 **샘플 계정 입력** 버튼을 사용할 수 있습니다. 샘플 초기화는 브라우저 저장소의 `checheDemo:*` 항목을 삭제하세요. 실제 연동 시 반드시 demo 모드를 false로 설정하세요.
-
 ## 검증
 
 ```powershell
 npm run typecheck
-npm test
 npm run build
 ```
 
-단위 테스트는 Gateway 요청 헤더, FormData 원본 전송, 인증·오류 처리, 중계 경로 제한, 다운로드·이미지, 예약 규칙을 검증합니다. lint 스크립트는 아직 설정되어 있지 않습니다. 실제 계정 로그인·Gateway 통합 검증은 백엔드를 실행한 환경에서 진행해야 합니다.
-
-화면 검증용 로컬 가짜 서버는 `node tests/fixtures/gateway.mjs`로 실행합니다. 별도 PowerShell 터미널에서 `$env:CHECHE_API_BASE_URL='http://127.0.0.1:9091'; node node_modules/next/dist/bin/next start --hostname 127.0.0.1 --port 3001`로 빌드된 앱을 실행한 뒤 `http://127.0.0.1:3001`에서 검증합니다. 이 서버는 실제 계정을 사용하지 않으며 재시작하면 초기화됩니다. 예약 취소 첫 시도는 오류, 다음 시도는 성공하도록 구성해 오류·완료 안내를 점검할 수 있습니다. 실제 연동 터미널의 환경변수는 변경하지 마세요.
-
-로컬 화면 검증 서버에서 `first_user`로 로그인하면 지역이 없는 신규 사용자 흐름을 확인할 수 있습니다(가짜 비밀번호 사용). 지역을 저장하면 다음 프로필 조회에 반영됩니다.
-
-테스트 관리자 아이디는 `regional`(지역 관리자), `super`(슈퍼 관리자), `suspended`(정지 계정)입니다. 기존 개발 서버와 동시에 검증하려면 별도 터미널에서 `CHECHE_DIST_DIR=.next-qa` 환경변수와 다른 포트를 사용하세요. 빌드와 실행에 동일한 출력 경로를 지정해야 합니다.
+타입 검사와 프로덕션 빌드로 검증합니다. lint 스크립트는 아직 설정되어 있지 않습니다. 실제 계정 로그인·Gateway 통합 검증은 백엔드를 실행한 환경에서 진행해야 합니다.
 
 프록시는 `src/lib/paths.ts`의 명세 경로·HTTP 메서드만 전달합니다. JSON 등 일반 요청은 64KiB, 사진 multipart 요청 전체는 16MiB로 제한하며 사진 1장 제한은 15MB입니다. 신규 API를 연동할 때는 허용 목록도 갱신하세요. 서버의 JWT·리소스 소유권 검사는 별도로 유지해야 합니다.
-
-관리자 로그인 후 `/admin/inspections/1`은 인증 헤더가 있어야 표시되는 테스트 사진과 유사 사례 카드 간격을, `/admin/inspections/2`는 사진 404 안내와 재시도를 검증합니다. 두 화면의 데이터는 로컬 fixture 전용입니다.
 
 Figma 원본 SVG는 `public/figma`에 저장되어 임시 원격 URL에 의존하지 않습니다. 글꼴은 `@fontsource-variable/42dot-sans`를 로컬 번들링합니다.
 

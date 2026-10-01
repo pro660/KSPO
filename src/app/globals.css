@@ -624,18 +624,6 @@
     width: 22px;
     height: 22px;
   }
-  .demo-tag {
-    position: absolute;
-    right: 10px;
-    top: 8px;
-    font-size: 8px;
-    color: #64748b;
-    z-index: 15;
-    background: #f8fafc;
-    border-radius: 8px;
-    padding: 2px 5px;
-    line-height: 1.4;
-  }
   .design-graphic {
     display: inline-block;
     position: relative;
@@ -772,18 +760,6 @@
     color: var(--muted);
     font-size: 12px;
     line-height: 1.7;
-  }
-  .demo-login {
-    font-size: 11px;
-    text-align: center;
-    background: #f8fafc;
-    border-radius: 10px;
-    padding: 12px;
-    margin-top: 26px;
-  }
-  .demo-login p {
-    color: #94a3b8;
-    margin-bottom: 5px;
   }
   .region-page {
     padding-top: 15px;

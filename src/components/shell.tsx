@@ -8,12 +8,7 @@ import {
   useSyncExternalStore,
   type ReactNode,
 } from "react";
-import {
-  AUTH_GUARD_DISABLED,
-  DEMO_MODE,
-  token,
-  subscribeAuth,
-} from "@/lib/api";
+import { token, subscribeAuth } from "@/lib/api";
 import { useApi } from "@/lib/hooks";
 import { accountForPath, getNavigation } from "@/lib/navigation";
 import type { Account, Profile } from "@/lib/types";
@@ -44,19 +39,17 @@ export function AppShell({ children }: { children: ReactNode }) {
   );
   const setup = path.endsWith("/setup-region");
   const profile = useApi<Profile>(
-    publicPage || (!accessToken && !AUTH_GUARD_DISABLED)
+    publicPage || !accessToken
       ? null
       : `/api/${account === "admin" ? "admins" : "users"}/me`,
     account,
     accessToken ?? "",
   );
   useEffect(() => {
-    if (AUTH_GUARD_DISABLED) return;
     if (!publicPage && !token(account))
       router.replace(account === "admin" ? "/admin/login" : "/login");
   }, [publicPage, account, router, accessToken]);
   useEffect(() => {
-    if (AUTH_GUARD_DISABLED) return;
     if (
       profile.data &&
       !publicPage &&
@@ -83,8 +76,9 @@ export function AppShell({ children }: { children: ReactNode }) {
       (isSuperPage(path) && profile.data.role !== "SUPER_USER"));
   const navigation =
     !publicPage &&
-    (AUTH_GUARD_DISABLED ||
-      (!!profile.data && !needsRegion && profile.data.status !== "SUSPENDED"))
+    !!profile.data &&
+    !needsRegion &&
+    profile.data.status !== "SUSPENDED"
       ? getNavigation(path, profile.data?.role)
       : null;
   return (
@@ -97,20 +91,11 @@ export function AppShell({ children }: { children: ReactNode }) {
       }}
     >
       <div className="app-shell">
-        {(DEMO_MODE || AUTH_GUARD_DISABLED) && (
-          <Link href="/screens" className="demo-tag">
-            {DEMO_MODE ? "샘플 미리보기" : "가드 임시 해제"}
-          </Link>
-        )}
         <main className={navigation ? "with-nav" : ""}>
           <div className="page-transition" key={path}>
-            {!AUTH_GUARD_DISABLED &&
-            !publicPage &&
-            (!accessToken || profile.loading || needsRegion) ? (
+            {!publicPage && (!accessToken || profile.loading || needsRegion) ? (
               <Loading />
-            ) : !AUTH_GUARD_DISABLED &&
-              !publicPage &&
-              (profile.error || !profile.data) ? (
+            ) : !publicPage && (profile.error || !profile.data) ? (
               <div className="page-content">
                 <ErrorMessage
                   message={
@@ -126,7 +111,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   로그인으로 이동
                 </Link>
               </div>
-            ) : !AUTH_GUARD_DISABLED && !publicPage && forbidden ? (
+            ) : !publicPage && forbidden ? (
               <Empty
                 title={
                   profile.data?.status === "SUSPENDED"

@@ -58,7 +58,6 @@ export function getNavigation(path: string, role?: AdminRole) {
   if (
     [
       "/",
-      "/screens",
       "/login",
       "/register",
       "/find-id",

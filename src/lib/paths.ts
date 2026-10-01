@@ -32,7 +32,6 @@ export function safeRelativePath(value: string) {
 
 const publicRoutes = [
   "/",
-  "/screens",
   "/login",
   "/register",
   "/find-id",

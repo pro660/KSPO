@@ -16,7 +16,7 @@ import {
   Stats,
   Tabs,
 } from "@/components/ui";
-import { api, AUTH_GUARD_DISABLED, jsonBody } from "@/lib/api";
+import { api, jsonBody } from "@/lib/api";
 import { useApi, useMutation } from "@/lib/hooks";
 import {
   listOf,
@@ -29,7 +29,7 @@ import {
 import { label } from "@/lib/format";
 export function AdminManagement() {
   const { profile, refresh } = useSession();
-  const allowed = AUTH_GUARD_DISABLED || profile?.role === "SUPER_USER";
+  const allowed = profile?.role === "SUPER_USER";
   const resource = useApi<ListResponse<Profile>>(
     allowed ? "/api/admins" : null,
     "admin",
@@ -217,7 +217,7 @@ export function AdminManagement() {
 }
 export function RegionOverview() {
   const { profile } = useSession();
-  const allowed = AUTH_GUARD_DISABLED || profile?.role === "SUPER_USER";
+  const allowed = profile?.role === "SUPER_USER";
   const regions = useApi<ListResponse<RegionOption>>(
     allowed ? "/api/admins/regions" : null,
     "admin",

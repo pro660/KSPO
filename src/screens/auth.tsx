@@ -10,7 +10,7 @@ import {
   Field,
   Notice,
 } from "@/components/ui";
-import { api, DEMO_MODE, jsonBody, saveLogin } from "@/lib/api";
+import { api, jsonBody, saveLogin } from "@/lib/api";
 import { useMutation } from "@/lib/hooks";
 import type { Account, LoginResponse } from "@/lib/types";
 function EntryLogo() {
@@ -197,26 +197,6 @@ export function AuthScreen({
         <Link className="auth-register" href={loginPath}>
           이미 계정이 있어요 · 로그인
         </Link>
-      )}
-      {DEMO_MODE && !register && (
-        <div className="demo-login">
-          <p>샘플 계정으로 화면을 확인하세요.</p>
-          <button
-            className="text-link"
-            onClick={() => {
-              setUsername(
-                account === "admin"
-                  ? superLogin
-                    ? "super-admin"
-                    : "seoul-admin"
-                  : "cheche_user",
-              );
-              setPassword("password123");
-            }}
-          >
-            샘플 계정 입력
-          </button>
-        </div>
       )}
     </div>
   );
