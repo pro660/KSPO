@@ -86,6 +86,6 @@ npm run build
 
 프록시는 `src/lib/paths.ts`의 명세 경로·HTTP 메서드만 전달합니다. JSON 등 일반 요청은 64KiB, 사진 multipart 요청 전체는 16MiB로 제한하며 사진 1장 제한은 15MB입니다. 신규 API를 연동할 때는 허용 목록도 갱신하세요. 서버의 JWT·리소스 소유권 검사는 별도로 유지해야 합니다.
 
-Figma 원본 SVG는 `public/figma`에 저장되어 임시 원격 URL에 의존하지 않습니다. 글꼴은 `@fontsource-variable/42dot-sans`를 로컬 번들링합니다.
+Figma 원본 SVG는 `public/figma`에 저장되어 임시 원격 URL에 의존하지 않습니다. 본문과 메뉴는 `pretendard` 패키지의 Pretendard Variable을 사용합니다. 글꼴 파일은 로컬 번들링하며, 다이나믹 서브셋으로 현재 화면에 필요한 문자 영역만 불러옵니다.
 
 구성 참고: [Next.js App Router](https://nextjs.org/docs/app/getting-started), [Tailwind CSS Next.js 설치](https://tailwindcss.com/docs/installation/framework-guides/nextjs).

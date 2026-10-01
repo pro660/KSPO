@@ -1,7 +1,7 @@
 @import "tailwindcss";
 @theme {
   --color-primary: #1677ef;
-  --font-sans: "42dot Sans Variable", Arial, sans-serif;
+  --font-sans: "Pretendard Variable", Pretendard, Arial, sans-serif;
 }
 /* Keep resets below components and utilities so spacing utilities can apply. */
 @layer base {
@@ -574,7 +574,7 @@
     box-shadow: 0 5px 16px rgb(15 23 42 / 11%);
     z-index: 20;
     padding: 5px 7px;
-    font-family: "Inter Variable", "42dot Sans Variable", sans-serif;
+    font-family: var(--font-sans);
   }
   .bottom-nav::before {
     content: "";

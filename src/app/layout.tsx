@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import "@fontsource-variable/42dot-sans";
-import "@fontsource-variable/inter";
+import "pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css";
 import "./globals.css";
 import "./motion.css";
 import { AppShell } from "@/components/shell";
