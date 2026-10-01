@@ -50,6 +50,8 @@ npm run dev
 - 사진 등록은 FormData를 사용하며 Content-Type boundary는 브라우저가 설정합니다. 이미지 최대 크기는 15MB입니다.
 - 홈은 `recommendations`, `aiExamplePrompt`, `quickSports`, `kspoFacilities`를 사용하며 검색의 `conditions`, `assistantMessage`, `recommendedFacility`를 기존 키워드·대화·추천 영역에 반영합니다. 시설 카드와 상세는 서버 요금·운영시간·편의시설을 표시하고 `distanceKm=null`이면 거리를 만들지 않습니다.
 - 예약은 내 지역의 내부 ID가 있는 운영 중 시설만 허용합니다. `/api/user/reservations/options`의 정각 1시간 슬롯·요금·잔여 인원과 오늘부터 5일의 날짜 선택지를 사용합니다. `/checkout`의 제공기관 예약 주소와 결제 지원 상태를 표시하며 예약 응답의 `totalFee`를 이용료로 표시합니다. 시작 전 취소, 중복 예약의 409 후 시간표 갱신을 처리하며 최종 권한·수용 인원·중복 검증은 서버 책임입니다.
+- 임시 요금 정책: 예약 가능한 내부 시설의 상세 요금은 `/checkout`의 `pricePerPerson`을 표시합니다. 조회 실패·요금 누락 시 시설의 `usageFee`를 대신 표시하지 않고 예약 시 확인하도록 안내합니다. 목록은 추가 API 호출 없이 상세 확인 문구를 표시하며, 실제 예약 금액은 선택한 시간대의 옵션 값을 사용합니다.
+- 관리자 권한 저장 경로에는 로그인 `userId`가 아닌 관리자 목록의 `id`를 사용합니다. 지역 관리자 저장 시 담당 지역 선택을 검증합니다.
 - 지역 선택 옵션과 관리자 권한은 서버 데이터를 사용합니다. 슈퍼 관리자 안전 점수는 `/api/inspections/super/regions/safety`, 반복 결함은 `/api/inspections/super/recurring-defects?minimumOccurrences=2`의 집계를 사용합니다.
 - 결함 유형·위험도·위치·확정 내용·조치 필요 여부·예정일은 `PATCH /api/inspections/{id}/confirmation`으로 저장합니다. 조치 필요 시 오늘 이후 예정일을 요구하며, 이후 조치 진행 상태와 메모는 보고서의 조치 변경에서 `/action`으로 저장합니다. 사진 한 장당 점검 한 건이며 재분석은 새 사진 점검으로 연결됩니다.
 - 점검 상세 조회 API가 없으므로 점검 목록에서 ID로 선택합니다. 보고서는 제공된 API의 UTF-8 텍스트를 `.txt`로 다운로드합니다. PDF 생성·추가 첨부 API는 가정하지 않습니다.

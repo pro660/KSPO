@@ -179,6 +179,7 @@ export interface ReservationOptions {
   timeSlots: TimeSlot[];
 }
 export interface ReservationCheckout {
+  pricePerPerson?: number;
   reservationMode?: string;
   externalReservationAvailable?: boolean;
   externalReservationUrl?: string | null;

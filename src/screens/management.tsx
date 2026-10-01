@@ -49,27 +49,35 @@ export function AdminManagement() {
   async function save(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!selected) return;
+    if (!Number.isSafeInteger(selected.id) || Number(selected.id) <= 0) {
+      mutation.setError(
+        "관리자 정보를 확인할 수 없습니다. 목록을 새로 불러와주세요.",
+      );
+      return;
+    }
     const form = new FormData(e.currentTarget);
     const role = String(form.get("role"));
     const regionCode = String(form.get("regionCode") ?? "");
     const regionName = listOf(regions.data).find(
       (r) => r.regionCode === regionCode,
     )?.regionName;
+    if (role === "REGIONAL_ADMIN" && (!regionCode || !regionName)) {
+      mutation.setError(
+        "지역 관리자 권한을 저장하려면 담당 지역을 선택해주세요.",
+      );
+      return;
+    }
     await mutation.run(
       () =>
-        api(
-          `/api/admins/${selected.userId ?? selected.id}/authority`,
-          "admin",
-          {
-            method: "PATCH",
-            body: jsonBody({
-              role,
-              status: form.get("status"),
-              regionCode: regionCode || null,
-              regionName: regionName || null,
-            }),
-          },
-        ),
+        api(`/api/admins/${selected.id}/authority`, "admin", {
+          method: "PATCH",
+          body: jsonBody({
+            role,
+            status: form.get("status"),
+            regionCode: regionCode || null,
+            regionName: regionName || null,
+          }),
+        }),
       () => {
         setSelected(undefined);
         resource.reload();

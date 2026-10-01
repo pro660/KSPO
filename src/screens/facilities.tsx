@@ -30,6 +30,7 @@ import type {
   HomeResponse,
   SearchResponse,
   UsageGuide,
+  ReservationCheckout,
 } from "@/lib/types";
 import { CalendarSheet } from "./reservations";
 export function facilityHref(f: Facility) {
@@ -150,9 +151,13 @@ export function FacilityCard({
           {f.regionName} {f.closingTime && `· ${f.closingTime.slice(0, 5)}까지`}
           {f.distanceKm != null && ` · ${f.distanceKm.toFixed(1)}km`}
         </p>
-        {(f.usageFee != null || f.nextAvailableTime) && (
+        {(canReserve(f) || f.usageFee != null || f.nextAvailableTime) && (
           <p className="muted text-xs mt-1">
-            {typeof f.usageFee === "number" ? money(f.usageFee) : f.usageFee}
+            {canReserve(f)
+              ? "예약요금은 상세에서 확인"
+              : typeof f.usageFee === "number"
+                ? money(f.usageFee)
+                : f.usageFee}
             {f.nextAvailableTime && ` · 다음 이용 ${f.nextAvailableTime}`}
           </p>
         )}
@@ -550,6 +555,11 @@ export function FacilityDetail({ id }: { id: string }) {
       } catch {}
   }, [isExternal, params]);
   const f = isExternal ? external : resource.data;
+  const reservable = !!f && canReserve(f, profile?.regionCode ?? null);
+  const checkout = useApi<ReservationCheckout>(
+    reservable ? `/api/user/reservations/checkout?facilityId=${id}` : null,
+  );
+  const reservationPrice = checkout.data?.pricePerPerson;
   const safetyRows = Array.isArray(safety.data)
     ? safety.data
     : safety.data
@@ -632,9 +642,16 @@ export function FacilityDetail({ id }: { id: string }) {
                 },
                 {
                   graphic: "fee",
-                  title: "이용요금",
-                  value:
-                    f.usageFee != null
+                  title: reservable ? "예약요금" : "이용요금",
+                  value: reservable
+                    ? checkout.loading
+                      ? "확인 중…"
+                      : typeof reservationPrice === "number" &&
+                          Number.isFinite(reservationPrice) &&
+                          reservationPrice >= 0
+                        ? `1인 ${money(reservationPrice)}`
+                        : "예약 시 확인"
+                    : f.usageFee != null
                       ? typeof f.usageFee === "number"
                         ? money(f.usageFee)
                         : f.usageFee
@@ -657,6 +674,17 @@ export function FacilityDetail({ id }: { id: string }) {
                 </div>
               ))}
             </div>
+            {reservable && (
+              <>
+                <ErrorMessage
+                  message={checkout.error}
+                  retry={checkout.reload}
+                />
+                <p className="muted text-xs mt-3">
+                  최종 요금은 예약 시 선택한 날짜·시간·인원에 따라 확인해주세요.
+                </p>
+              </>
+            )}
             <SectionTitle>이용 가능한 시설</SectionTitle>
             <div className="amenities">
               {(f.availableFacilities?.length
@@ -712,7 +740,7 @@ export function FacilityDetail({ id }: { id: string }) {
             ) : null}
             <div className="info-list mt-3">
               {[
-                ["요금 안내", f.feeInfo],
+                ["요금 안내", reservable ? null : f.feeInfo],
                 ["수용 인원", f.capacity != null ? `${f.capacity}명` : null],
                 ["신청 방법", f.applicationMethod],
                 ["휴관일", f.closedDays],
