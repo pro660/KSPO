@@ -84,6 +84,14 @@
   textarea {
     resize: vertical;
   }
+  @media (hover: none) and (pointer: coarse) {
+    input,
+    select,
+    textarea {
+      /* Keep mobile fields above iOS's focus-zoom threshold, including compact filters. */
+      font-size: 16px !important;
+    }
+  }
   h1,
   h2,
   h3,
