@@ -160,6 +160,19 @@ export async function forwardGateway(
         }
       }
     }
+    // Keep upstream error statuses so the client can handle expired sessions and
+    // denied access, without exposing HTML error pages from the backend.
+    if (
+      response.status >= 400 &&
+      response.headers.get("content-type")?.toLowerCase().includes("text/html")
+    ) {
+      await response.body?.cancel();
+      status = response.status;
+      const outgoing = new Headers(resultHeaders);
+      const retryAfter = response.headers.get("retry-after");
+      if (retryAfter) outgoing.set("retry-after", retryAfter);
+      return new Response(null, { status, headers: outgoing });
+    }
     // Never relay tunnel warning pages or follow redirects with a bearer token.
     if (
       (response.status >= 300 && response.status < 400) ||
